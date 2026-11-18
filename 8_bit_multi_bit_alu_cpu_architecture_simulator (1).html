@@ -1,0 +1,1966 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Bit ALU & CPU Architecture Simulator | KCA105 & KCA152</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0b0f19;
+            color: #f1f5f9;
+        }
+        /* Clean, breathable glass cards */
+        .app-card {
+            background: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+        }
+        .hw-block {
+            background: #161f33;
+            border: 2px solid #26334d;
+            border-radius: 0.75rem;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        /* Clear visual highlights for active CPU blocks */
+        .hw-active-source {
+            border-color: #38bdf8 !important;
+            background: rgba(56, 189, 248, 0.08) !important;
+            box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15), 0 8px 25px -4px rgba(56, 189, 248, 0.25);
+            transform: translateY(-2px);
+        }
+        .hw-active-dest {
+            border-color: #10b981 !important;
+            background: rgba(16, 185, 129, 0.08) !important;
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15), 0 8px 25px -4px rgba(16, 185, 129, 0.25);
+            transform: translateY(-2px);
+        }
+        .hw-active-alu {
+            border-color: #a855f7 !important;
+            background: rgba(168, 85, 247, 0.1) !important;
+            box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.18), 0 8px 25px -4px rgba(168, 85, 247, 0.3);
+            transform: translateY(-2px);
+        }
+        /* Bit Toggle Pill */
+        .bit-btn {
+            transition: all 0.15s ease;
+        }
+        .bit-btn:active {
+            transform: scale(0.93);
+        }
+        /* Custom subtle scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased selection:bg-sky-500 selection:text-white">
+
+    <header class="sticky top-0 z-40 bg-[#0b0f19]/90 backdrop-blur-md border-b border-slate-800 px-4 sm:px-8 py-3.5">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <!-- Project Title & Course Badge -->
+            <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-sky-500/20">
+                    <i class="fa-solid fa-microchip text-lg"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2.5">
+                        <h1 class="font-bold text-base sm:text-lg text-white tracking-tight">Multi-Bit ALU & CPU Simulator</h1>
+                        <span class="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                            MCA COA Project (KCA105 & KCA152)
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400">Interactive Step-by-Step Visual Architecture & Logic Explorer</p>
+                </div>
+            </div>
+
+            <!-- Simple, Clear Navigation Tabs -->
+            <nav class="flex flex-wrap items-center bg-slate-900/90 p-1 rounded-xl border border-slate-800 gap-1">
+                <button onclick="switchMainTab('cpu')" id="tab-btn-cpu" class="px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 bg-sky-500 text-slate-950 shadow-sm">
+                    <i class="fa-solid fa-play"></i>
+                    <span>1. CPU Simulator</span>
+                </button>
+                <button onclick="switchMainTab('alu')" id="tab-btn-alu" class="px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 text-slate-400 hover:text-white hover:bg-slate-800/60">
+                    <i class="fa-solid fa-calculator"></i>
+                    <span>2. 8-Bit ALU Explorer</span>
+                </button>
+                <button onclick="switchMainTab('booth')" id="tab-btn-booth" class="px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 text-slate-400 hover:text-white hover:bg-slate-800/60">
+                    <i class="fa-solid fa-table-cells"></i>
+                    <span>3. Booth's & IEEE-754</span>
+                </button>
+                <button onclick="switchMainTab('flipflop')" id="tab-btn-flipflop" class="px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 text-slate-400 hover:text-white hover:bg-slate-800/60">
+                    <i class="fa-solid fa-toggle-on"></i>
+                    <span>4. Flip-Flops</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-6">
+
+        <!-- ========================================================================= -->
+        <!-- TAB 1: CLEAN, GUIDED STEP-BY-STEP CPU & DATAPATH SIMULATOR                -->
+        <!-- ========================================================================= -->
+        <section id="tab-cpu" class="space-y-6">
+
+            <!-- TOP CONTROL & STEP-BY-STEP NARRATOR BANNER -->
+            <div class="app-card p-5 space-y-5">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <!-- Main Action Buttons -->
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <button onclick="stepMicroCycle()" id="btn-step-micro" class="px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-sm flex items-center gap-2 shadow-lg shadow-sky-500/20 transition active:scale-95">
+                            <i class="fa-solid fa-forward-step"></i>
+                            <span>Next Step (Sub-Cycle)</span>
+                        </button>
+                        <button onclick="stepFullInstruction()" id="btn-step-instr" class="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-sm flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition active:scale-95">
+                            <i class="fa-solid fa-bolt"></i>
+                            <span>Complete Full Instruction</span>
+                        </button>
+                        <button onclick="toggleAutoRun()" id="btn-autorun" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-sm flex items-center gap-2 transition">
+                            <i class="fa-solid fa-play text-emerald-400" id="autorun-icon"></i>
+                            <span id="autorun-text">Auto Play</span>
+                        </button>
+                        <button onclick="resetCPU(true)" class="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 font-medium text-sm flex items-center gap-2 transition">
+                            <i class="fa-solid fa-rotate-left"></i>
+                            <span>Reset</span>
+                        </button>
+                    </div>
+
+                    <!-- 4-Step Instruction Cycle Visual Progress Bar -->
+                    <div class="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800/80 text-xs font-medium">
+                        <div id="step-pill-0" class="px-3 py-1.5 rounded-lg bg-sky-500 text-slate-950 font-bold flex items-center gap-1.5 transition-all">
+                            <span class="w-4 h-4 rounded-full bg-slate-950/20 flex items-center justify-center text-[10px]">1</span>
+                            <span>Fetch Address</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-[10px] text-slate-600"></i>
+                        <div id="step-pill-1" class="px-3 py-1.5 rounded-lg text-slate-400 flex items-center gap-1.5 transition-all">
+                            <span class="w-4 h-4 rounded-full bg-slate-800 flex items-center justify-center text-[10px]">2</span>
+                            <span>Read Memory</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-[10px] text-slate-600"></i>
+                        <div id="step-pill-2" class="px-3 py-1.5 rounded-lg text-slate-400 flex items-center gap-1.5 transition-all">
+                            <span class="w-4 h-4 rounded-full bg-slate-800 flex items-center justify-center text-[10px]">3</span>
+                            <span>Decode</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-[10px] text-slate-600"></i>
+                        <div id="step-pill-3" class="px-3 py-1.5 rounded-lg text-slate-400 flex items-center gap-1.5 transition-all">
+                            <span class="w-4 h-4 rounded-full bg-slate-800 flex items-center justify-center text-[10px]">4</span>
+                            <span>Execute</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LIVE PLAIN-ENGLISH EXPLANATION BANNER ("WHAT IS HAPPENING RIGHT NOW") -->
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div class="flex items-start gap-3.5">
+                        <div id="narrator-badge" class="px-3 py-1.5 rounded-lg bg-sky-500/15 text-sky-400 border border-sky-500/30 font-mono text-xs font-bold shrink-0 mt-0.5">
+                            READY
+                        </div>
+                        <div>
+                            <div id="narrator-title" class="text-sm sm:text-base font-semibold text-white">
+                                Ready to start! Click "Next Step" to watch the CPU fetch its first instruction.
+                            </div>
+                            <p id="narrator-desc" class="text-xs sm:text-sm text-slate-400 mt-0.5">
+                                Every instruction runs in 4 simple steps: 1. Locate address &rarr; 2. Read instruction &rarr; 3. Decode command &rarr; 4. Execute in ALU or Registers.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- RTL Formula Box -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-lg px-3.5 py-2 shrink-0 w-full md:w-auto">
+                        <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Register Transfer (RTL)</div>
+                        <div id="live-rtl-display" class="text-xs sm:text-sm font-mono font-bold text-emerald-400 mt-0.5">
+                            PC = 0 (Waiting for Clock)
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                <!-- LEFT COLUMN (4 Cols): PROGRAM INSTRUCTIONS & CODE EDITOR -->
+                <div class="lg:col-span-4 space-y-6">
+                    <!-- Program Selector & Active Instruction List -->
+                    <div class="app-card p-5 flex flex-col gap-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-list-ol text-sky-400"></i>
+                                    <span>Program Memory (ROM)</span>
+                                </h2>
+                                <p class="text-xs text-slate-400">Highlighted row shows the current instruction</p>
+                            </div>
+                            <select id="program-preset" onchange="loadPresetProgram(this.value)" class="bg-slate-900 text-xs text-sky-400 font-semibold border border-slate-700 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-sky-500">
+                                <option value="alu_demo">Example 1: Add, Shift & Store</option>
+                                <option value="fibonacci">Example 2: Loop Sum (5 down to 1)</option>
+                                <option value="gray_code">Example 3: Binary to Gray Code</option>
+                                <option value="overflow_test">Example 4: Signed Overflow Test</option>
+                            </select>
+                        </div>
+
+                        <!-- Clean Visual Instruction Cards -->
+                        <div id="rom-list-container" class="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+                            <!-- Populated by JS -->
+                        </div>
+
+                        <!-- Collapsible Assembly Code Editor -->
+                        <div class="pt-2 border-t border-slate-800/80">
+                            <button onclick="toggleCodeEditor()" class="w-full flex items-center justify-between text-xs font-semibold text-slate-400 hover:text-white py-1.5 transition">
+                                <span class="flex items-center gap-2"><i class="fa-solid fa-code text-sky-400"></i> Edit or Write Custom Assembly Program</span>
+                                <i id="editor-chevron" class="fa-solid fa-chevron-down text-[10px] transition-transform"></i>
+                            </button>
+
+                            <div id="code-editor-panel" class="hidden mt-3 space-y-3">
+                                <textarea id="asm-editor" rows="7" spellcheck="false" class="w-full bg-slate-950 border border-slate-800 text-emerald-300 font-mono text-xs p-3 rounded-lg focus:outline-none focus:border-sky-500 leading-relaxed"></textarea>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="assembleAndLoad()" class="flex-1 py-2 px-3 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs transition">
+                                        Load Program into CPU
+                                    </button>
+                                    <button onclick="toggleISAReference()" class="py-2 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium">
+                                        Commands Help
+                                    </button>
+                                </div>
+                                <div id="asm-status" class="text-xs font-mono text-emerald-400"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Control Unit Signals (Simplified & Clear) -->
+                    <div class="app-card p-5 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-Sliders text-rose-400"></i>
+                                    <span>Control Unit Signals</span>
+                                </h2>
+                                <p class="text-xs text-slate-400">Wires turned ON by the Control Unit right now</p>
+                            </div>
+                            <span class="text-[11px] font-mono text-slate-500">KCA152 Exp 8</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2" id="control-signals-grid">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CENTER COLUMN (8 Cols): VISUAL CPU ARCHITECTURE & DATA FLOW -->
+                <div class="lg:col-span-8 space-y-6">
+
+                    <!-- MAIN CPU INTERNAL ARCHITECTURE DIAGRAM -->
+                    <div class="app-card p-5 sm:p-6 space-y-6">
+                        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3.5">
+                            <div>
+                                <h2 class="text-base font-bold text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-diagram-project text-sky-400"></i>
+                                    <span>Inside the CPU: Registers & 8-Bit ALU Datapath</span>
+                                </h2>
+                                <p class="text-xs text-slate-400">Blue glow = Reading data from block &bull; Green glow = Writing new data into block</p>
+                            </div>
+
+                            <!-- Number Base Toggle -->
+                            <div class="flex items-center gap-2 text-xs">
+                                <span class="text-slate-400">Click any register bit to flip <code class="text-sky-400">0/1</code></span>
+                            </div>
+                        </div>
+
+                        <!-- STEP 1: SPECIAL PURPOSE CONTROL REGISTERS (PC, MAR, MBR, IR) -->
+                        <div>
+                            <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center justify-between">
+                                <span>A. Instruction Fetch & Control Registers (KCA105 Unit I & III)</span>
+                                <span id="active-bus-pill" class="text-sky-400 font-mono">System Bus: Ready</span>
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <!-- PC -->
+                                <div id="reg-card-PC" class="hw-block p-3.5">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold text-amber-400">PC</span>
+                                        <span class="text-[11px] text-slate-400">Program Counter</span>
+                                    </div>
+                                    <div id="pc-dec" class="text-2xl font-bold font-mono text-white mt-1">0</div>
+                                    <div id="pc-hex" class="text-[11px] font-mono text-slate-400 mt-0.5">Hex: 0x00</div>
+                                    <div class="text-[10px] text-slate-500 mt-1">Points to next line</div>
+                                </div>
+
+                                <!-- MAR -->
+                                <div id="reg-card-MAR" class="hw-block p-3.5">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold text-sky-400">MAR</span>
+                                        <span class="text-[11px] text-slate-400">Address Reg</span>
+                                    </div>
+                                    <div id="mar-dec" class="text-2xl font-bold font-mono text-white mt-1">0</div>
+                                    <div id="mar-hex" class="text-[11px] font-mono text-slate-400 mt-0.5">Hex: 0x00</div>
+                                    <div class="text-[10px] text-slate-500 mt-1">Memory address lookup</div>
+                                </div>
+
+                                <!-- MBR -->
+                                <div id="reg-card-MBR" class="hw-block p-3.5">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold text-emerald-400">MBR</span>
+                                        <span class="text-[11px] text-slate-400">Buffer Reg</span>
+                                    </div>
+                                    <div id="mbr-hex" class="text-xl font-bold font-mono text-white mt-1">0x0000</div>
+                                    <div id="mbr-bin" class="text-[10px] font-mono text-slate-400 mt-1 truncate">00000000 00000000</div>
+                                    <div class="text-[10px] text-slate-500 mt-1">Holds fetched data</div>
+                                </div>
+
+                                <!-- IR -->
+                                <div id="reg-card-IR" class="hw-block p-3.5">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold text-rose-400">IR</span>
+                                        <span class="text-[11px] text-slate-400">Instruction Reg</span>
+                                    </div>
+                                    <div id="ir-mnemonic" class="text-base font-bold font-mono text-rose-300 mt-1 truncate">NONE</div>
+                                    <div id="ir-decode-fields" class="text-[11px] font-mono text-slate-400 mt-1">Waiting to decode</div>
+                                    <div class="text-[10px] text-slate-500 mt-1">Current command</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- STEP 2: FOUR 8-BIT GENERAL PURPOSE REGISTERS (R0 - R3) -->
+                        <div>
+                            <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center justify-between">
+                                <span>B. Four 8-Bit Internal Registers R0–R3 (KCA152 Lab Experiment 5)</span>
+                                <span class="text-[11px] text-slate-500">8-Bit D Flip-Flop Register File</span>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="gpr-container">
+                                <!-- Populated dynamically by JS -->
+                            </div>
+                        </div>
+
+                        <!-- STEP 3: 8-BIT ARITHMETIC LOGIC UNIT (ALU) & STATUS FLAGS -->
+                        <div id="alu-datapath-box" class="hw-block p-5 space-y-4">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-lg bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300 font-bold">
+                                        <i class="fa-solid fa-calculator"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-sm font-bold text-white">C. 8-Bit Multi-Bit ALU (Arithmetic & Logic Unit)</h3>
+                                        <p class="text-xs text-slate-400">Performs math & logic on 8-bit numbers and updates Status Flags</p>
+                                    </div>
+                                </div>
+                                <button onclick="switchMainTab('alu')" class="px-3 py-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-xs font-semibold transition flex items-center gap-1.5">
+                                    <span>Inspect Inside ALU Gates</span>
+                                    <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                                </button>
+                            </div>
+
+                            <!-- Visual Equation Row: Input A  [OP]  Input B  =  Result -->
+                            <div class="grid grid-cols-1 sm:grid-cols-7 gap-2.5 items-center text-center">
+                                <!-- Input A -->
+                                <div class="sm:col-span-2 bg-slate-950/90 border border-slate-800 rounded-xl p-3">
+                                    <div class="text-[11px] font-medium text-slate-400">Input A</div>
+                                    <div id="cpu-alu-a-val" class="text-lg font-bold font-mono text-sky-400 mt-0.5">0</div>
+                                    <div id="cpu-alu-a-bin" class="text-[11px] font-mono text-slate-500">00000000</div>
+                                </div>
+
+                                <!-- Operation Badge -->
+                                <div class="sm:col-span-1 flex flex-col items-center justify-center py-1">
+                                    <span id="cpu-alu-op-badge" class="px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/40 font-mono text-xs font-bold">
+                                        IDLE
+                                    </span>
+                                </div>
+
+                                <!-- Input B -->
+                                <div class="sm:col-span-2 bg-slate-950/90 border border-slate-800 rounded-xl p-3">
+                                    <div class="text-[11px] font-medium text-slate-400">Input B</div>
+                                    <div id="cpu-alu-b-val" class="text-lg font-bold font-mono text-amber-400 mt-0.5">0</div>
+                                    <div id="cpu-alu-b-bin" class="text-[11px] font-mono text-slate-500">00000000</div>
+                                </div>
+
+                                <!-- Output Result -->
+                                <div class="sm:col-span-2 bg-emerald-950/25 border border-emerald-500/40 rounded-xl p-3">
+                                    <div class="text-[11px] font-medium text-emerald-300">ALU Result</div>
+                                    <div id="cpu-alu-out-val" class="text-lg font-bold font-mono text-emerald-400 mt-0.5">0</div>
+                                    <div id="cpu-alu-out-bin" class="text-[11px] font-mono text-emerald-500/80">00000000</div>
+                                </div>
+                            </div>
+
+                            <!-- 4 Status Flags with Clear Explanations -->
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                                <div id="flag-box-Z" class="bg-slate-950/70 border border-slate-800 rounded-lg px-3 py-2 flex items-center justify-between">
+                                    <div>
+                                        <div class="text-xs font-bold text-slate-200">Zero (Z)</div>
+                                        <div class="text-[10px] text-slate-500">Result == 0</div>
+                                    </div>
+                                    <span id="flag-val-Z" class="w-7 h-7 rounded-lg bg-slate-900 flex items-center justify-center font-mono text-sm font-bold text-slate-500">0</span>
+                                </div>
+                                <div id="flag-box-C" class="bg-slate-950/70 border border-slate-800 rounded-lg px-3 py-2 flex items-center justify-between">
+                                    <div>
+                                        <div class="text-xs font-bold text-slate-200">Carry (C)</div>
+                                        <div class="text-[10px] text-slate-500">Unsigned Carry</div>
+                                    </div>
+                                    <span id="flag-val-C" class="w-7 h-7 rounded-lg bg-slate-900 flex items-center justify-center font-mono text-sm font-bold text-slate-500">0</span>
+                                </div>
+                                <div id="flag-box-S" class="bg-slate-950/70 border border-slate-800 rounded-lg px-3 py-2 flex items-center justify-between">
+                                    <div>
+                                        <div class="text-xs font-bold text-slate-200">Sign (S)</div>
+                                        <div class="text-[10px] text-slate-500">Negative (Bit 7=1)</div>
+                                    </div>
+                                    <span id="flag-val-S" class="w-7 h-7 rounded-lg bg-slate-900 flex items-center justify-center font-mono text-sm font-bold text-slate-500">0</span>
+                                </div>
+                                <div id="flag-box-V" class="bg-slate-950/70 border border-slate-800 rounded-lg px-3 py-2 flex items-center justify-between">
+                                    <div>
+                                        <div class="text-xs font-bold text-slate-200">Overflow (V)</div>
+                                        <div class="text-[10px] text-slate-500">2's Comp Overflow</div>
+                                    </div>
+                                    <span id="flag-val-V" class="w-7 h-7 rounded-lg bg-slate-900 flex items-center justify-center font-mono text-sm font-bold text-slate-500">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- STEP 4: DATA MEMORY (RAM) & STEP HISTORY -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Data Memory (RAM) -->
+                            <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h3 class="text-xs font-bold uppercase tracking-wider text-amber-400">D. Data Memory (RAM — First 16 Bytes)</h3>
+                                        <p class="text-[11px] text-slate-400">Used by <code class="text-slate-300">LOAD</code> and <code class="text-slate-300">STORE</code> instructions</p>
+                                    </div>
+                                    <div class="flex items-center gap-1 text-xs">
+                                        <input type="number" id="ram-edit-input" min="0" max="255" value="0" class="w-14 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sky-300 font-mono text-xs">
+                                        <button onclick="updateSelectedRamCell()" class="px-2 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 font-semibold text-xs">Set</button>
+                                    </div>
+                                </div>
+                                <div id="ram-grid" class="grid grid-cols-4 sm:grid-cols-8 gap-1.5 font-mono text-xs">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+
+                            <!-- Step-by-Step Execution Log -->
+                            <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 flex flex-col">
+                                <div class="flex items-center justify-between mb-2">
+                                    <div>
+                                        <h3 class="text-xs font-bold uppercase tracking-wider text-sky-400">E. Step-by-Step History Log</h3>
+                                        <p class="text-[11px] text-slate-400">Record of completed micro-operations</p>
+                                    </div>
+                                    <button onclick="clearRTLLog()" class="text-xs text-slate-500 hover:text-rose-400">Clear</button>
+                                </div>
+                                <div id="rtl-log-container" class="flex-1 space-y-1.5 overflow-y-auto max-h-36 font-mono text-xs pr-1">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 2: DEDICATED 8-BIT MULTI-BIT ALU & FULL-ADDER GATE EXPLORER           -->
+        <!-- ========================================================================= -->
+        <section id="tab-alu" class="hidden space-y-6">
+
+            <div class="app-card p-6 space-y-6">
+                <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                    <div>
+                        <span class="text-xs font-semibold text-purple-400 uppercase tracking-wider">KCA152 Lab Experiments 1, 2, 3 & 6</span>
+                        <h2 class="text-xl font-bold text-white mt-0.5">Interactive 8-Bit Multi-Bit ALU & Full Adder Explorer</h2>
+                        <p class="text-sm text-slate-400">Change numbers A and B below, pick an operation, and click any of the 8 Full Adder stages (<code class="text-purple-300">FA7..FA0</code>) to see its logic gates.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="randomizeALUInputs()" class="px-3.5 py-2 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 text-xs font-semibold flex items-center gap-2">
+                            <i class="fa-solid fa-dice"></i> Random Numbers
+                        </button>
+                        <button onclick="clearALUInputs()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">
+                            Reset to 0
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STEP 1: INPUT A, OPERATION SELECTOR, INPUT B -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                    <!-- Input A & Input B Controls -->
+                    <div class="lg:col-span-7 space-y-4">
+                        <!-- Input A Card -->
+                        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2.5 py-1 rounded-md bg-sky-500/20 text-sky-400 font-mono text-xs font-bold">INPUT A</span>
+                                    <span class="text-xs text-slate-400">Type decimal (0–255) or click bits:</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input type="number" id="alu-num-a" min="0" max="255" value="25" oninput="setStandaloneNumber('a', this.value)" class="w-20 bg-slate-900 border border-sky-500/40 rounded-lg px-2.5 py-1 text-right font-mono font-bold text-sky-300 text-sm">
+                                    <span id="sa-hex" class="text-xs font-mono text-slate-400">0x19</span>
+                                </div>
+                            </div>
+                            <div id="alu-switches-A" class="grid grid-cols-8 gap-2"></div>
+                        </div>
+
+                        <!-- Input B Card -->
+                        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-400 font-mono text-xs font-bold">INPUT B</span>
+                                    <span class="text-xs text-slate-400">Type decimal (0–255) or click bits:</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input type="number" id="alu-num-b" min="0" max="255" value="17" oninput="setStandaloneNumber('b', this.value)" class="w-20 bg-slate-900 border border-amber-500/40 rounded-lg px-2.5 py-1 text-right font-mono font-bold text-amber-300 text-sm">
+                                    <span id="sb-hex" class="text-xs font-mono text-slate-400">0x11</span>
+                                </div>
+                            </div>
+                            <div id="alu-switches-B" class="grid grid-cols-8 gap-2"></div>
+                        </div>
+                    </div>
+
+                    <!-- 3-to-8 Decoder Operation Selector -->
+                    <div class="lg:col-span-5 bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col justify-between space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-sm font-bold text-white">Select ALU Operation</h3>
+                                <p class="text-xs text-slate-400">3-to-8 Line Decoder (<code class="text-purple-300">S2 S1 S0</code> — Exp 3)</p>
+                            </div>
+                            <span id="alu-sel-bits" class="px-2.5 py-1 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/40 font-mono text-xs font-bold">
+                                S = 000 (ADD)
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2" id="alu-op-buttons">
+                            <button onclick="setStandaloneALUOp('ADD', '000')" id="aluop-ADD" class="alu-op-btn p-2.5 rounded-lg border text-left transition bg-purple-500/20 border-purple-400 text-white">
+                                <div class="text-[10px] font-mono text-purple-300">S = 000</div>
+                                <div class="text-xs font-bold">ADD (A + B)</div>
+                            </button>
+                            <button onclick="setStandaloneALUOp('SUB', '001')" id="aluop-SUB" class="alu-op-btn p-2.5 rounded-lg border border-slate-800 bg-slate-900/70 text-left text-slate-300 hover:border-slate-700 transition">
+                                <div class="text-[10px] font-mono text-slate-500">S = 001</div>
+                                <div class="text-xs font-bold">SUB (A - B)</div>
+                            </button>
+                            <button onclick="setStandaloneALUOp('AND', '010')" id="aluop-AND" class="alu-op-btn p-2.5 rounded-lg border border-slate-800 bg-slate-900/70 text-left text-slate-300 hover:border-slate-700 transition">
+                                <div class="text-[10px] font-mono text-slate-500">S = 010</div>
+                                <div class="text-xs font-bold">AND (A &amp; B)</div>
+                            </button>
+                            <button onclick="setStandaloneALUOp('OR', '011')" id="aluop-OR" class="alu-op-btn p-2.5 rounded-lg border border-slate-800 bg-slate-900/70 text-left text-slate-300 hover:border-slate-700 transition">
+                                <div class="text-[10px] font-mono text-slate-500">S = 011</div>
+                                <div class="text-xs font-bold">OR (A | B)</div>
+                            </button>
+                            <button onclick="setStandaloneALUOp('XOR', '100')" id="aluop-XOR" class="alu-op-btn p-2.5 rounded-lg border border-slate-800 bg-slate-900/70 text-left text-slate-300 hover:border-slate-700 transition">
+                                <div class="text-[10px] font-mono text-slate-500">S = 100</div>
+                                <div class="text-xs font-bold">XOR (A ^ B)</div>
+                            </button>
+                            <button onclick="setStandaloneALUOp('NOT', '101')" id="aluop-NOT" class="alu-op-btn p-2.5 rounded-lg border border-slate-800 bg-slate-900/70 text-left text-slate-300 hover:border-slate-700 transition">
+                                <div class="text-[10px] font-mono text-slate-500">S = 101</div>
+                                <div class="text-xs font-bold">NOT (~A)</div>
+                            </button>
+                            <button onclick="setStandaloneALUOp('B2G', '110')" id="aluop-B2G" class="alu-op-btn p-2.5 rounded-lg border border-slate-800 bg-slate-900/70 text-left text-slate-300 hover:border-slate-700 transition">
+                                <div class="text-[10px] font-mono text-sky-400">S = 110 (Exp 2)</div>
+                                <div class="text-xs font-bold">Binary &rarr; Gray</div>
+                            </button>
+                            <button onclick="setStandaloneALUOp('G2B', '111')" id="aluop-G2B" class="alu-op-btn p-2.5 rounded-lg border border-slate-800 bg-slate-900/70 text-left text-slate-300 hover:border-slate-700 transition">
+                                <div class="text-[10px] font-mono text-sky-400">S = 111 (Exp 2)</div>
+                                <div class="text-xs font-bold">Gray &rarr; Binary</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 2: 8-BIT OUTPUT RESULT & STATUS FLAGS -->
+                <div class="bg-emerald-950/20 border border-emerald-500/30 rounded-xl p-5 space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">8-Bit Output Result Y[7:0]</span>
+                            <div id="sa-formula-desc" class="text-sm text-slate-300 mt-0.5">25 + 17 = 42</div>
+                        </div>
+                        <div class="flex items-center gap-3 font-mono">
+                            <span id="sy-dec" class="text-xl font-bold text-white">Decimal: 42</span>
+                            <span id="sy-hex" class="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold text-sm">0x2A</span>
+                        </div>
+                    </div>
+
+                    <div id="alu-output-leds" class="grid grid-cols-8 gap-2"></div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1 font-mono text-xs">
+                        <div class="bg-slate-950/80 border border-slate-800 p-2.5 rounded-lg flex justify-between">
+                            <span class="text-slate-400">Zero Flag (Z):</span>
+                            <strong id="sa-flag-Z" class="text-emerald-400">0</strong>
+                        </div>
+                        <div class="bg-slate-950/80 border border-slate-800 p-2.5 rounded-lg flex justify-between">
+                            <span class="text-slate-400">Carry Out (C8):</span>
+                            <strong id="sa-flag-C" class="text-amber-400">0</strong>
+                        </div>
+                        <div class="bg-slate-950/80 border border-slate-800 p-2.5 rounded-lg flex justify-between">
+                            <span class="text-slate-400">Sign Flag (S):</span>
+                            <strong id="sa-flag-S" class="text-sky-400">0</strong>
+                        </div>
+                        <div class="bg-slate-950/80 border border-slate-800 p-2.5 rounded-lg flex justify-between">
+                            <span class="text-slate-400">Overflow (V):</span>
+                            <strong id="sa-flag-V" class="text-rose-400">0</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 3: 8 FULL ADDER STAGES & GATE-LEVEL SCHEMATIC (KCA152 EXP 1) -->
+                <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-5 space-y-5">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <h3 class="text-sm font-bold text-white">Inside the 8-Bit Adder: Carry Propagation Chain (FA7 &larr; FA0)</h3>
+                            <p class="text-xs text-slate-400">Click any Full Adder stage below to inspect its internal Half-Adders and XOR/AND/OR logic gates (KCA152 Exp 1)</p>
+                        </div>
+                        <span class="text-xs font-mono text-purple-300">Carry flows right-to-left (FA0 &rarr; FA7)</span>
+                    </div>
+
+                    <div id="fa-stages-grid" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5"></div>
+
+                    <!-- Clean Interactive SVG Logic Gate Diagram for the Selected Bit -->
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                            <span id="slice-title" class="text-xs sm:text-sm font-bold text-sky-400">
+                                Gate-Level Full Adder Circuit — Bit 0 (FA0)
+                            </span>
+                            <span class="text-xs text-slate-400">Green Wire = <strong class="text-emerald-400">1 (HIGH)</strong> &bull; Gray Wire = <strong class="text-slate-500">0 (LOW)</strong></span>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <svg id="fa-gate-svg" viewBox="0 0 680 175" class="w-full h-auto min-w-[520px]">
+                                <text x="12" y="38" fill="#38bdf8" font-family="JetBrains Mono" font-size="12" font-weight="bold" id="svg-fa-lbl-a">A0 = 1</text>
+                                <text x="12" y="78" fill="#fbbf24" font-family="JetBrains Mono" font-size="12" font-weight="bold" id="svg-fa-lbl-b">B0 = 1</text>
+                                <text x="12" y="138" fill="#c084fc" font-family="JetBrains Mono" font-size="12" font-weight="bold" id="svg-fa-lbl-cin">Cin = 0</text>
+
+                                <path id="wire-ai" d="M 75 34 L 155 34 M 105 34 L 105 98 L 155 98" stroke="#334155" stroke-width="2.5" fill="none"/>
+                                <path id="wire-bi" d="M 75 74 L 125 74 L 125 52 L 155 52 M 125 74 L 125 116 L 155 116" stroke="#334155" stroke-width="2.5" fill="none"/>
+                                <path id="wire-cin" d="M 75 134 L 295 134 L 295 72 L 345 72 M 295 134 L 345 134" stroke="#334155" stroke-width="2.5" fill="none"/>
+
+                                <g transform="translate(155, 22)">
+                                    <rect width="80" height="42" rx="6" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5"/>
+                                    <text x="40" y="17" text-anchor="middle" fill="#94a3b8" font-family="Inter" font-size="9" font-weight="600">XOR Gate 1</text>
+                                    <text id="svg-gate-pi" x="40" y="33" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="11" font-weight="bold">P = 0</text>
+                                </g>
+
+                                <g transform="translate(155, 88)">
+                                    <rect width="80" height="42" rx="6" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5"/>
+                                    <text x="40" y="17" text-anchor="middle" fill="#94a3b8" font-family="Inter" font-size="9" font-weight="600">AND Gate 1</text>
+                                    <text id="svg-gate-gi" x="40" y="33" text-anchor="middle" fill="#fbbf24" font-family="JetBrains Mono" font-size="11" font-weight="bold">G = 1</text>
+                                </g>
+
+                                <path id="wire-pi" d="M 235 42 L 345 42 M 268 42 L 268 112 L 345 112" stroke="#334155" stroke-width="2.5" fill="none"/>
+
+                                <g transform="translate(345, 36)">
+                                    <rect width="86" height="44" rx="6" fill="#0f172a" stroke="#10b981" stroke-width="1.5"/>
+                                    <text x="43" y="18" text-anchor="middle" fill="#94a3b8" font-family="Inter" font-size="9" font-weight="600">XOR Gate 2</text>
+                                    <text id="svg-gate-sum" x="43" y="34" text-anchor="middle" fill="#10b981" font-family="JetBrains Mono" font-size="11" font-weight="bold">Sum = 0</text>
+                                </g>
+
+                                <g transform="translate(345, 102)">
+                                    <rect width="86" height="42" rx="6" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5"/>
+                                    <text x="43" y="17" text-anchor="middle" fill="#94a3b8" font-family="Inter" font-size="9" font-weight="600">AND Gate 2</text>
+                                    <text id="svg-gate-picin" x="43" y="33" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="10" font-weight="bold">P&middot;Cin = 0</text>
+                                </g>
+
+                                <path id="wire-gi" d="M 235 108 L 250 108 L 250 158 L 465 158 L 465 132 L 490 132" stroke="#334155" stroke-width="2.5" fill="none"/>
+                                <path id="wire-picin" d="M 431 122 L 490 122" stroke="#334155" stroke-width="2.5" fill="none"/>
+
+                                <g transform="translate(490, 104)">
+                                    <rect width="86" height="42" rx="6" fill="#0f172a" stroke="#c084fc" stroke-width="1.5"/>
+                                    <text x="43" y="17" text-anchor="middle" fill="#94a3b8" font-family="Inter" font-size="9" font-weight="600">OR Gate (Carry)</text>
+                                    <text id="svg-gate-cout" x="43" y="33" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono" font-size="11" font-weight="bold">Cout = 1</text>
+                                </g>
+
+                                <path id="wire-sum-out" d="M 431 58 L 600 58" stroke="#334155" stroke-width="3" fill="none"/>
+                                <path id="wire-cout-out" d="M 576 125 L 600 125" stroke="#334155" stroke-width="3" fill="none"/>
+                                <text x="608" y="62" fill="#10b981" font-family="JetBrains Mono" font-size="12" font-weight="bold" id="svg-fa-out-s">S0=0</text>
+                                <text x="608" y="129" fill="#c084fc" font-family="JetBrains Mono" font-size="12" font-weight="bold" id="svg-fa-out-c">C1=1</text>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 3: BOOTH'S MULTIPLICATION ALGORITHM & IEEE-754 FLOATING POINT         -->
+        <!-- ========================================================================= -->
+        <section id="tab-booth" class="hidden space-y-6">
+
+            <!-- Booth's Multiplication Card -->
+            <div class="app-card p-6 space-y-5">
+                <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                    <div>
+                        <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">KCA105 Unit II — Signed Multiplication</span>
+                        <h2 class="text-lg font-bold text-white mt-0.5">Booth's 2's Complement Multiplication Visualizer</h2>
+                        <p class="text-xs sm:text-sm text-slate-400">Enter any signed integers (-64 to +63) to generate the complete step-by-step hardware register trace.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl flex items-center gap-2 text-xs">
+                            <span class="text-slate-400">Multiplicand (M):</span>
+                            <input type="number" id="booth-m" value="-7" min="-64" max="63" class="w-16 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sky-300 font-mono font-bold text-center">
+                        </div>
+                        <div class="bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl flex items-center gap-2 text-xs">
+                            <span class="text-slate-400">Multiplier (Q):</span>
+                            <input type="number" id="booth-q" value="3" min="-64" max="63" class="w-16 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-amber-300 font-mono font-bold text-center">
+                        </div>
+                        <button onclick="runBoothSimulation()" class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs transition">
+                            Calculate Steps
+                        </button>
+                    </div>
+                </div>
+
+                <div id="booth-summary" class="grid grid-cols-1 sm:grid-cols-4 gap-3 font-mono"></div>
+
+                <div class="overflow-x-auto bg-slate-950 border border-slate-800 rounded-xl">
+                    <table class="w-full text-left border-collapse font-mono text-xs">
+                        <thead class="bg-slate-900 text-slate-400 border-b border-slate-800">
+                            <tr>
+                                <th class="py-3 px-4">Step</th>
+                                <th class="py-3 px-4">Bits (Q0, Q-1)</th>
+                                <th class="py-3 px-4">Action Taken</th>
+                                <th class="py-3 px-4">Accumulator (A)</th>
+                                <th class="py-3 px-4">Multiplier (Q)</th>
+                                <th class="py-3 px-4">Q-1</th>
+                            </tr>
+                        </thead>
+                        <tbody id="booth-table-body" class="divide-y divide-slate-800/70"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- IEEE-754 Single Precision Floating Point Converter -->
+            <div class="app-card p-6 space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                    <div>
+                        <span class="text-xs font-semibold text-sky-400 uppercase tracking-wider">KCA105 Unit II — Floating Point Representation</span>
+                        <h2 class="text-lg font-bold text-white mt-0.5">IEEE-754 32-Bit Floating-Point Converter</h2>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="text-slate-400">Decimal Number:</span>
+                        <input type="number" id="ieee-input" step="any" value="-12.625" oninput="updateIEEE754()" class="w-32 bg-slate-950 border border-slate-700 px-3 py-1.5 rounded-lg text-sky-300 font-mono font-bold">
+                        <button onclick="setIEEEPreset(-12.625)" class="px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-300">-12.625</button>
+                        <button onclick="setIEEEPreset(3.14159)" class="px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-300">3.14159</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 font-mono">
+                    <div class="md:col-span-2 bg-slate-950 border border-slate-800 p-4 rounded-xl">
+                        <div class="text-xs text-rose-400 font-bold">Sign (1 Bit)</div>
+                        <div id="ieee-sign-bit" class="text-2xl font-bold text-white mt-1">1</div>
+                        <div id="ieee-sign-desc" class="text-xs text-slate-400 mt-1">Negative (-)</div>
+                    </div>
+                    <div class="md:col-span-4 bg-slate-950 border border-slate-800 p-4 rounded-xl">
+                        <div class="text-xs text-amber-400 font-bold">Exponent (8 Bits, Bias 127)</div>
+                        <div id="ieee-exp-bits" class="text-lg font-bold text-amber-300 mt-1 tracking-widest">10000010</div>
+                        <div id="ieee-exp-desc" class="text-xs text-slate-400 mt-1">130 - 127 = 2^3</div>
+                    </div>
+                    <div class="md:col-span-6 bg-slate-950 border border-slate-800 p-4 rounded-xl">
+                        <div class="flex justify-between text-xs text-sky-400 font-bold">
+                            <span>Mantissa / Fraction (23 Bits)</span>
+                            <span id="ieee-hex-out" class="text-emerald-400">0xC14A0000</span>
+                        </div>
+                        <div id="ieee-mant-bits" class="text-sm font-bold text-sky-300 mt-1 break-all tracking-wider">10010100000000000000000</div>
+                        <div id="ieee-formula-out" class="text-xs text-slate-400 mt-1">IEEE-754 Encoded Value = -12.625</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 4: FLIP-FLOPS EXCITATION VERIFIER (KCA152 EXP 4)                     -->
+        <!-- ========================================================================= -->
+        <section id="tab-flipflop" class="hidden space-y-6">
+            <div class="app-card p-6 space-y-5">
+                <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                    <div>
+                        <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider">KCA152 Lab Experiment 4</span>
+                        <h2 class="text-lg font-bold text-white mt-0.5">Interactive Flip-Flop Excitation & Characteristic Table Verifier</h2>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs font-semibold">
+                        <button onclick="selectFlipFlop('JK')" id="ff-btn-JK" class="px-3.5 py-2 rounded-lg bg-sky-500 text-slate-950">JK Flip-Flop</button>
+                        <button onclick="selectFlipFlop('SR')" id="ff-btn-SR" class="px-3.5 py-2 rounded-lg bg-slate-800 text-slate-300">SR Flip-Flop</button>
+                        <button onclick="selectFlipFlop('D')" id="ff-btn-D" class="px-3.5 py-2 rounded-lg bg-slate-800 text-slate-300">D Flip-Flop</button>
+                        <button onclick="selectFlipFlop('T')" id="ff-btn-T" class="px-3.5 py-2 rounded-lg bg-slate-800 text-slate-300">T Flip-Flop</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div class="lg:col-span-5 bg-slate-950 border border-slate-800 p-5 rounded-xl space-y-4">
+                        <div id="ff-title-badge" class="text-xs font-mono font-bold text-sky-400">JK Flip-Flop</div>
+                        <div class="grid grid-cols-2 gap-3 font-mono">
+                            <button onclick="toggleFFInput(0)" id="ff-in-0-btn" class="p-3.5 rounded-xl bg-slate-900 border border-slate-700 text-left">
+                                <div id="ff-in-0-lbl" class="text-xs text-slate-400">INPUT J</div>
+                                <div id="ff-in-0-val" class="text-lg font-bold text-sky-400 mt-1">0 (LOW)</div>
+                            </button>
+                            <button onclick="toggleFFInput(1)" id="ff-in-1-btn" class="p-3.5 rounded-xl bg-slate-900 border border-slate-700 text-left">
+                                <div id="ff-in-1-lbl" class="text-xs text-slate-400">INPUT K</div>
+                                <div id="ff-in-1-val" class="text-lg font-bold text-amber-400 mt-1">0 (LOW)</div>
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 text-center font-mono">
+                            <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                                <div class="text-xs text-slate-400">Current State Q(t)</div>
+                                <div id="ff-q-cur" class="text-2xl font-bold text-emerald-400 mt-1">0</div>
+                            </div>
+                            <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                                <div class="text-xs text-slate-400">Complement Q'(t)</div>
+                                <div id="ff-qbar-cur" class="text-2xl font-bold text-rose-400 mt-1">1</div>
+                            </div>
+                        </div>
+                        <button onclick="triggerFFClock()" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs transition">
+                            Pulse Clock Edge (CLK &uarr;)
+                        </button>
+                        <div id="ff-transition-banner" class="p-3 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-sky-300">
+                            State Hold: Q(t+1) = Q(t) = 0
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
+                        <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl">
+                            <div class="font-bold text-amber-400 mb-3">Characteristic Table</div>
+                            <table class="w-full text-left border-collapse">
+                                <thead id="ff-char-head" class="text-slate-400 border-b border-slate-800"></thead>
+                                <tbody id="ff-char-body" class="divide-y divide-slate-800/60"></tbody>
+                            </table>
+                        </div>
+                        <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl">
+                            <div class="font-bold text-purple-400 mb-3">Excitation Table</div>
+                            <table class="w-full text-left border-collapse">
+                                <thead id="ff-exc-head" class="text-slate-400 border-b border-slate-800"></thead>
+                                <tbody id="ff-exc-body" class="divide-y divide-slate-800/60"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Complete Syllabus Coverage -->
+            <div class="grid grid-cols-1 gap-6">
+                <div class="app-card p-5 space-y-3">
+                    <h3 class="text-sm font-bold text-sky-400 uppercase">KCA152 Lab Experiments Covered</h3>
+                    <ul class="space-y-2 text-xs text-slate-300">
+                        <li class="p-2.5 rounded-lg bg-slate-950 border border-slate-800"><strong>Exp 1 & 6 (Half/Full Adder & 8-Bit ALU):</strong> Tab 2 interactive 8-bit carry chain and gate diagram.</li>
+                        <li class="p-2.5 rounded-lg bg-slate-950 border border-slate-800"><strong>Exp 2 & 3 (Binary/Gray Code & 3-to-8 Decoder):</strong> Tab 2 operation selector (`S = 110` & `111`).</li>
+                        <li class="p-2.5 rounded-lg bg-slate-950 border border-slate-800"><strong>Exp 4 (Flip-Flop Excitation Tables):</strong> Tab 4 interactive `JK`, `SR`, `D`, and `T` verifier.</li>
+                        <li class="p-2.5 rounded-lg bg-slate-950 border border-slate-800"><strong>Exp 5, 7, 8, 9 (4 Registers, RTL Datapath, Control Unit, Simple CPU):</strong> Tab 1 guided 4-step CPU simulator.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ISA Reference Modal -->
+    <div id="isa-modal" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="app-card max-w-xl w-full p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-sm font-bold text-white">Supported Assembly Instructions (ISA)</h3>
+                <button onclick="toggleISAReference()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 font-mono text-xs">
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800"><strong class="text-sky-400">MOVI R0, 25</strong> : Put number 25 into R0</div>
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800"><strong class="text-sky-400">MOV R1, R0</strong> : Copy R0 into R1</div>
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800"><strong class="text-purple-400">ADD R0, R1</strong> : R0 = R0 + R1</div>
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800"><strong class="text-purple-400">SUB R0, R1</strong> : R0 = R0 - R1</div>
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800"><strong class="text-purple-400">AND / OR / XOR</strong> : Bitwise Logic</div>
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800"><strong class="text-purple-400">SHL R0 / SHR R0</strong> : Shift bits Left/Right</div>
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800"><strong class="text-amber-400">STORE R0, 10</strong> : Save R0 to RAM[10]</div>
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800"><strong class="text-rose-400">HLT</strong> : Stop the program</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================================
+        // 1. GATE-LEVEL 8-BIT MULTI-BIT ALU ENGINE
+        // ============================================================================
+        function fullAdder1Bit(a, b, cin) {
+            const prop = a ^ b;
+            const gen = a & b;
+            const sum = prop ^ cin;
+            const cout = gen | (cin & prop);
+            return { a, b, cin, prop, gen, sum, cout };
+        }
+
+        function compute8BitALU(op, valA, valB) {
+            const a = valA & 0xFF;
+            const b = valB & 0xFF;
+            let result = 0;
+            let carryOut = 0;
+            let overflow = 0;
+            let slices = [];
+
+            if (op === 'ADD' || op === 'SUB' || op === 'INC' || op === 'DEC') {
+                let effectiveB = b;
+                let cin = 0;
+                if (op === 'SUB') { effectiveB = (~b) & 0xFF; cin = 1; }
+                else if (op === 'INC') { effectiveB = 1; cin = 0; }
+                else if (op === 'DEC') { effectiveB = 0xFF; cin = 0; }
+
+                let carry = cin;
+                let c6 = 0;
+                for (let i = 0; i < 8; i++) {
+                    const stage = fullAdder1Bit((a >> i) & 1, (effectiveB >> i) & 1, carry);
+                    slices.push(stage);
+                    result |= (stage.sum << i);
+                    carry = stage.cout;
+                    if (i === 6) c6 = carry;
+                }
+                carryOut = carry;
+                overflow = c6 ^ carryOut;
+            } else {
+                let carry = 0;
+                for (let i = 0; i < 8; i++) {
+                    const stage = fullAdder1Bit((a >> i) & 1, (b >> i) & 1, carry);
+                    slices.push(stage);
+                    carry = stage.cout;
+                }
+                if (op === 'AND') result = a & b;
+                else if (op === 'OR') result = a | b;
+                else if (op === 'XOR') result = a ^ b;
+                else if (op === 'NOT') result = (~a) & 0xFF;
+                else if (op === 'SHL') { carryOut = (a >> 7) & 1; result = (a << 1) & 0xFF; }
+                else if (op === 'SHR') { carryOut = a & 1; result = (a >> 1) & 0xFF; }
+                else if (op === 'B2G') { result = (a ^ (a >> 1)) & 0xFF; }
+                else if (op === 'G2B') {
+                    let bin = a, mask = a >> 1;
+                    while (mask !== 0) { bin ^= mask; mask >>= 1; }
+                    result = bin & 0xFF;
+                }
+            }
+
+            return {
+                result,
+                flags: {
+                    Z: result === 0 ? 1 : 0,
+                    C: carryOut ? 1 : 0,
+                    S: (result >> 7) & 1,
+                    V: overflow ? 1 : 0
+                },
+                slices
+            };
+        }
+
+        function toHex2(n) { return '0x' + (n & 0xFF).toString(16).toUpperCase().padStart(2, '0'); }
+        function toHex4(n) { return '0x' + (n & 0xFFFF).toString(16).toUpperCase().padStart(4, '0'); }
+        function toBin8(n) { return (n & 0xFF).toString(2).padStart(8, '0'); }
+        function toSigned8(n) {
+            const v = n & 0xFF;
+            return v >= 128 ? v - 256 : '+' + v;
+        }
+
+        // ============================================================================
+        // 2. PRESET PROGRAMS & ASSEMBLER
+        // ============================================================================
+        const PRESET_PROGRAMS = {
+            alu_demo: `; Example 1: Add, Shift & Store in RAM
+MOVI R0, 25      ; Put 25 into Register R0
+MOVI R1, 17      ; Put 17 into Register R1
+ADD R0, R1       ; Add R0 + R1 (25 + 17 = 42)
+SHL R0           ; Multiply by 2 (42 << 1 = 84)
+SUB R0, R1       ; Subtract R1 (84 - 17 = 67)
+STORE R0, 2      ; Save R0 (67) into RAM[2]
+HLT              ; Stop CPU`,
+
+            fibonacci: `; Example 2: Loop Sum (5 + 4 + 3 + 2 + 1 = 15)
+MOVI R0, 0       ; R0 holds our total sum (0)
+MOVI R1, 5       ; R1 is our loop counter (5)
+ADD R0, R1       ; Loop Start: Add R1 to R0
+DEC R1           ; Decrease counter R1 by 1
+JNZ 2            ; If R1 is not zero, jump back to line 2
+STORE R0, 0      ; Store final sum (15) into RAM[0]
+HLT`,
+
+            gray_code: `; Example 3: Binary to Gray Code Conversion
+MOVI R0, 13      ; Load binary number 13 (00001101)
+MOV R1, R0       ; Copy 13 into R1
+SHR R1           ; Shift R1 right by 1 (00000110)
+XOR R0, R1       ; R0 = R0 XOR R1 (Gray code = 11)
+STORE R0, 4      ; Save Gray code in RAM[4]
+HLT`,
+
+            overflow_test: `; Example 4: Signed 2's Complement Overflow
+MOVI R0, 100     ; R0 = +100
+MOVI R1, 50      ; R1 = +50
+ADD R0, R1       ; 100 + 50 = 150 (Exceeds +127 max signed!)
+STORE R0, 1      ; Sets Overflow Flag (V = 1)
+HLT`
+        };
+
+        const OPCODE_MAP = {
+            'NOP': 0x0, 'MOVI': 0x1, 'MOV': 0x2, 'LOAD': 0x3,
+            'STORE': 0x4, 'ADD': 0x5, 'SUB': 0x6, 'AND': 0x7,
+            'OR': 0x8, 'XOR': 0x9, 'ALU1': 0xA, 'JMP': 0xD,
+            'BR': 0xE, 'HLT': 0xF
+        };
+
+        const cpu = {
+            regs: [0, 0, 0, 0],
+            PC: 0,
+            MAR: 0,
+            MBR: 0,
+            IR: 0,
+            irText: 'NONE',
+            flags: { Z: 0, C: 0, S: 0, V: 0 },
+            ram: new Array(16).fill(0),
+            rom: [],
+            tState: 0,
+            halted: false,
+            autoRunTimer: null,
+            selectedRamAddr: 0,
+            lastALU: { op: 'IDLE', a: 0, b: 0, out: 0 }
+        };
+
+        function parseRegister(token) {
+            if (!token) return 0;
+            const clean = token.toUpperCase().replace(',', '').trim();
+            if (clean.startsWith('R')) {
+                const idx = parseInt(clean.substring(1), 10);
+                if (idx >= 0 && idx <= 3) return idx;
+            }
+            return 0;
+        }
+
+        function assembleProgram(sourceText) {
+            const lines = sourceText.split('\n');
+            const compiled = [];
+
+            for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+                const partsWithComment = lines[lineIdx].split(';');
+                let raw = partsWithComment[0].trim();
+                let comment = (partsWithComment[1] || '').trim();
+                if (!raw) continue;
+
+                const parts = raw.replace(/,/g, ' ').split(/\s+/);
+                const mnem = parts[0].toUpperCase();
+                let op = 0, rd = 0, rs = 0, imm = 0;
+
+                if (mnem === 'NOP') op = 0x0;
+                else if (mnem === 'MOVI') { op = 0x1; rd = parseRegister(parts[1]); imm = parseInt(parts[2] || '0', 10) & 0xFF; }
+                else if (mnem === 'MOV')  { op = 0x2; rd = parseRegister(parts[1]); rs = parseRegister(parts[2]); }
+                else if (mnem === 'LOAD') { op = 0x3; rd = parseRegister(parts[1]); imm = parseInt(parts[2] || '0', 10) & 0xFF; }
+                else if (mnem === 'STORE'){ op = 0x4; rs = parseRegister(parts[1]); imm = parseInt(parts[2] || '0', 10) & 0xFF; }
+                else if (['ADD', 'SUB', 'AND', 'OR', 'XOR'].includes(mnem)) {
+                    op = OPCODE_MAP[mnem]; rd = parseRegister(parts[1]); rs = parseRegister(parts[2]);
+                } else if (['NOT', 'SHL', 'SHR', 'INC', 'DEC'].includes(mnem)) {
+                    op = 0xA; rd = parseRegister(parts[1]);
+                    const subMap = { 'NOT': 0, 'SHL': 1, 'SHR': 2, 'INC': 3, 'DEC': 4 };
+                    rs = subMap[mnem];
+                } else if (mnem === 'JMP') { op = 0xD; imm = parseInt(parts[1] || '0', 10) & 0xFF; }
+                else if (mnem === 'JZ' || mnem === 'JNZ') {
+                    op = 0xE; rd = mnem === 'JNZ' ? 1 : 0; imm = parseInt(parts[1] || '0', 10) & 0xFF;
+                } else if (mnem === 'HLT') { op = 0xF; }
+                else { throw new Error(`Line ${lineIdx + 1}: Unknown command '${mnem}'`); }
+
+                const word16 = ((op & 0xF) << 12) | ((rd & 0x3) << 10) | ((rs & 0x3) << 8) | (imm & 0xFF);
+                compiled.push({ addr: compiled.length, word: word16, mnemonic: raw, comment, op, rd, rs, imm });
+            }
+            return compiled;
+        }
+
+        // ============================================================================
+        // 3. GUIDED STEP-BY-STEP CPU EXECUTION & PLAIN-ENGLISH NARRATOR
+        // ============================================================================
+        function clearHighlights() {
+            document.querySelectorAll('.hw-block').forEach(el => {
+                el.classList.remove('hw-active-source', 'hw-active-dest', 'hw-active-alu');
+            });
+        }
+
+        function updateStepProgressBar(activeStep) {
+            const labels = ['Fetch Address', 'Read Memory', 'Decode', 'Execute'];
+            for (let i = 0; i < 4; i++) {
+                const pill = document.getElementById(`step-pill-${i}`);
+                if (i === activeStep) {
+                    pill.className = 'px-3 py-1.5 rounded-lg bg-sky-500 text-slate-950 font-bold flex items-center gap-1.5 transition-all shadow-sm';
+                } else {
+                    pill.className = 'px-3 py-1.5 rounded-lg text-slate-400 flex items-center gap-1.5 transition-all';
+                }
+            }
+        }
+
+        function renderControlSignals(activeList) {
+            const allSignals = [
+                { id: 'PC_Out', label: 'PC_Out (Send PC)' },
+                { id: 'MAR_In', label: 'MAR_In (Load Address)' },
+                { id: 'Mem_Read', label: 'Mem_Read (Read ROM/RAM)' },
+                { id: 'MBR_In', label: 'MBR_In (Load Buffer)' },
+                { id: 'PC_Inc', label: 'PC_Inc (PC + 1)' },
+                { id: 'IR_In', label: 'IR_In (Decode Instr)' },
+                { id: 'ALU_Enable', label: 'ALU_Enable (Compute)' },
+                { id: 'Reg_Write', label: 'Reg_Write (Save to Reg)' },
+                { id: 'Mem_Write', label: 'Mem_Write (Save to RAM)' },
+                { id: 'PC_Load', label: 'PC_Load (Jump)' }
+            ];
+            const grid = document.getElementById('control-signals-grid');
+            grid.innerHTML = allSignals.map(sig => {
+                const isOn = activeList.includes(sig.id);
+                return `
+                    <span class="px-2.5 py-1 rounded-lg text-xs font-mono transition ${isOn
+                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/50 font-bold shadow-sm'
+                        : 'bg-slate-950 text-slate-500 border border-slate-800/80'}">
+                        ${isOn ? '● ' : '○ '}${sig.label}
+                    </span>`;
+            }).join('');
+        }
+
+        function setNarrator(badgeText, titleText, descText, rtlText, busText) {
+            document.getElementById('narrator-badge').textContent = badgeText;
+            document.getElementById('narrator-title').textContent = titleText;
+            document.getElementById('narrator-desc').textContent = descText;
+            document.getElementById('live-rtl-display').innerHTML = rtlText;
+            document.getElementById('active-bus-pill').textContent = busText;
+        }
+
+        function appendRTLLog(stepName, plainText, rtlCode) {
+            const container = document.getElementById('rtl-log-container');
+            const div = document.createElement('div');
+            div.className = 'p-2 rounded-lg bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-2';
+            div.innerHTML = `
+                <div>
+                    <span class="text-sky-400 font-bold mr-1.5">[${stepName}]</span>
+                    <span class="text-slate-200 font-sans">${plainText}</span>
+                </div>
+                <span class="text-emerald-400 shrink-0">${rtlCode}</span>`;
+            container.prepend(div);
+        }
+
+        function clearRTLLog() {
+            document.getElementById('rtl-log-container').innerHTML = '';
+        }
+
+        function stepMicroCycle() {
+            if (cpu.halted) {
+                setNarrator('HALTED', 'Program Execution Complete!', 'Click "Reset" or choose another example program to run again.', 'CPU Halted', 'Bus Idle');
+                stopAutoRun();
+                return;
+            }
+            if (cpu.PC >= cpu.rom.length && cpu.tState === 0) {
+                cpu.halted = true;
+                stopAutoRun();
+                return;
+            }
+
+            clearHighlights();
+            updateStepProgressBar(cpu.tState);
+
+            if (cpu.tState === 0) {
+                // STEP 1: FETCH ADDRESS (MAR <- PC)
+                cpu.MAR = cpu.PC & 0xFF;
+                document.getElementById('reg-card-PC').classList.add('hw-active-source');
+                document.getElementById('reg-card-MAR').classList.add('hw-active-dest');
+                renderControlSignals(['PC_Out', 'MAR_In']);
+
+                setNarrator(
+                    'STEP 1 OF 4 • FETCH ADDRESS',
+                    `Copying Instruction Number (${cpu.PC}) from PC into MAR`,
+                    `The Program Counter (PC) tells the Memory Address Register (MAR) which instruction line (${cpu.PC}) to fetch next.`,
+                    `MAR &larr; PC (${cpu.PC})`,
+                    `Address Bus carrying Line #${cpu.PC}`
+                );
+                appendRTLLog('Step 1', `Sent address ${cpu.PC} from PC to MAR`, `MAR ← ${cpu.PC}`);
+                cpu.tState = 1;
+
+            } else if (cpu.tState === 1) {
+                // STEP 2: READ INSTRUCTION FROM MEMORY (MBR <- ROM[MAR], PC++)
+                const instrObj = cpu.rom[cpu.MAR];
+                cpu.MBR = instrObj ? instrObj.word : 0xF000;
+                const fetchedMnemonic = instrObj ? instrObj.mnemonic : 'HLT';
+                cpu.PC = (cpu.PC + 1) & 0xFF;
+
+                document.getElementById('reg-card-MAR').classList.add('hw-active-source');
+                document.getElementById('reg-card-MBR').classList.add('hw-active-dest');
+                document.getElementById('reg-card-PC').classList.add('hw-active-dest');
+                renderControlSignals(['Mem_Read', 'MBR_In', 'PC_Inc']);
+
+                setNarrator(
+                    'STEP 2 OF 4 • READ MEMORY',
+                    `Fetched "${fetchedMnemonic}" into MBR & Advanced PC to ${cpu.PC}`,
+                    `Memory read the instruction at line ${cpu.MAR} into the Buffer Register (MBR), and PC increased by 1 so it is ready for the next line.`,
+                    `MBR &larr; ROM[${cpu.MAR}], PC &larr; ${cpu.PC}`,
+                    `Data Bus carrying "${fetchedMnemonic}"`
+                );
+                appendRTLLog('Step 2', `Fetched "${fetchedMnemonic}" from Memory`, `MBR ← ${toHex4(cpu.MBR)}`);
+                cpu.tState = 2;
+
+            } else if (cpu.tState === 2) {
+                // STEP 3: DECODE INSTRUCTION (IR <- MBR)
+                cpu.IR = cpu.MBR;
+                const instrObj = cpu.rom[cpu.MAR];
+                cpu.irText = instrObj ? instrObj.mnemonic : 'HLT';
+
+                document.getElementById('reg-card-MBR').classList.add('hw-active-source');
+                document.getElementById('reg-card-IR').classList.add('hw-active-dest');
+                renderControlSignals(['IR_In']);
+
+                setNarrator(
+                    'STEP 3 OF 4 • DECODE',
+                    `Control Unit Decoded Command: "${cpu.irText}"`,
+                    `The Instruction Register (IR) splits the 16-bit instruction into its Opcode and Register numbers so the CPU knows what to do in Step 4.`,
+                    `IR &larr; MBR (${cpu.irText})`,
+                    `Control Unit decoding "${cpu.irText}"`
+                );
+                appendRTLLog('Step 3', `Decoded command "${cpu.irText}" in IR`, `IR ← MBR`);
+                cpu.tState = 3;
+
+            } else if (cpu.tState === 3) {
+                // STEP 4: EXECUTE INSTRUCTION
+                executeDecodedInstruction();
+                cpu.tState = 0;
+            }
+
+            renderAllCPUState();
+        }
+
+        function executeDecodedInstruction() {
+            const op = (cpu.IR >> 12) & 0xF;
+            const rd = (cpu.IR >> 10) & 0x3;
+            const rs = (cpu.IR >> 8) & 0x3;
+            const imm = cpu.IR & 0xFF;
+
+            if (op === 0x1) {
+                // MOVI Rd, Imm
+                cpu.regs[rd] = imm;
+                document.getElementById(`gpr-card-${rd}`).classList.add('hw-active-dest');
+                renderControlSignals(['Reg_Write']);
+                setNarrator(
+                    'STEP 4 OF 4 • EXECUTE',
+                    `Loaded Number ${imm} directly into Register R${rd}`,
+                    `The immediate value ${imm} (${toHex2(imm)}) is stored inside 8-bit Register R${rd}.`,
+                    `R${rd} &larr; ${imm}`,
+                    `Data Bus wrote ${imm} to R${rd}`
+                );
+                appendRTLLog('Step 4', `Loaded ${imm} into R${rd}`, `R${rd} ← ${imm}`);
+
+            } else if (op === 0x2) {
+                // MOV Rd, Rs
+                cpu.regs[rd] = cpu.regs[rs];
+                document.getElementById(`gpr-card-${rs}`).classList.add('hw-active-source');
+                document.getElementById(`gpr-card-${rd}`).classList.add('hw-active-dest');
+                renderControlSignals(['Reg_Write']);
+                setNarrator(
+                    'STEP 4 OF 4 • EXECUTE',
+                    `Copied value (${cpu.regs[rs]}) from R${rs} into R${rd}`,
+                    `Register R${rd} now holds the exact same 8-bit number as Register R${rs}.`,
+                    `R${rd} &larr; R${rs} (${cpu.regs[rd]})`,
+                    `Internal Register Transfer R${rs} → R${rd}`
+                );
+                appendRTLLog('Step 4', `Copied R${rs} (${cpu.regs[rd]}) to R${rd}`, `R${rd} ← R${rs}`);
+
+            } else if (op === 0x3) {
+                // LOAD Rd, Addr
+                const addr = imm & 0x0F;
+                cpu.MAR = addr;
+                cpu.regs[rd] = cpu.ram[addr];
+                document.getElementById(`gpr-card-${rd}`).classList.add('hw-active-dest');
+                renderControlSignals(['MAR_In', 'Mem_Read', 'Reg_Write']);
+                setNarrator(
+                    'STEP 4 OF 4 • EXECUTE',
+                    `Loaded ${cpu.regs[rd]} from Data RAM[${addr}] into Register R${rd}`,
+                    `Read byte at RAM address ${addr} and stored it in R${rd}.`,
+                    `R${rd} &larr; RAM[${addr}] (${cpu.regs[rd]})`,
+                    `Read RAM[${addr}] → R${rd}`
+                );
+                appendRTLLog('Step 4', `Loaded RAM[${addr}] into R${rd}`, `R${rd} ← ${cpu.regs[rd]}`);
+
+            } else if (op === 0x4) {
+                // STORE Rs, Addr
+                const addr = imm & 0x0F;
+                cpu.MAR = addr;
+                cpu.ram[addr] = cpu.regs[rs];
+                cpu.selectedRamAddr = addr;
+                document.getElementById(`gpr-card-${rs}`).classList.add('hw-active-source');
+                renderControlSignals(['MAR_In', 'Mem_Write']);
+                setNarrator(
+                    'STEP 4 OF 4 • EXECUTE',
+                    `Saved R${rs} (${cpu.regs[rs]}) into Data Memory RAM[${addr}]`,
+                    `Look at "D. Data Memory (RAM)" at the bottom right—cell #${addr} now stores ${cpu.regs[rs]}!`,
+                    `RAM[${addr}] &larr; R${rs} (${cpu.regs[rs]})`,
+                    `Wrote ${cpu.regs[rs]} to RAM[${addr}]`
+                );
+                appendRTLLog('Step 4', `Stored R${rs} (${cpu.regs[rs]}) into RAM[${addr}]`, `RAM[${addr}] ← ${cpu.regs[rs]}`);
+
+            } else if (op >= 0x5 && op <= 0x9) {
+                // ALU Two-Operand Instructions
+                const opNames = { 0x5: 'ADD', 0x6: 'SUB', 0x7: 'AND', 0x8: 'OR', 0x9: 'XOR' };
+                const opSymbols = { 'ADD': '+', 'SUB': '-', 'AND': 'AND', 'OR': 'OR', 'XOR': 'XOR' };
+                const aluOp = opNames[op];
+                const valA = cpu.regs[rd];
+                const valB = cpu.regs[rs];
+                const resObj = compute8BitALU(aluOp, valA, valB);
+
+                cpu.regs[rd] = resObj.result;
+                cpu.flags = resObj.flags;
+                cpu.lastALU = { op: aluOp, a: valA, b: valB, out: resObj.result };
+
+                document.getElementById(`gpr-card-${rd}`).classList.add('hw-active-dest');
+                document.getElementById(`gpr-card-${rs}`).classList.add('hw-active-source');
+                document.getElementById('alu-datapath-box').classList.add('hw-active-alu');
+                renderControlSignals(['ALU_Enable', 'Reg_Write']);
+
+                setNarrator(
+                    'STEP 4 OF 4 • ALU EXECUTION',
+                    `8-Bit ALU Computed: ${valA} ${opSymbols[aluOp]} ${valB} = ${resObj.result} (Saved into R${rd})`,
+                    `The ALU took Input A (${valA} from R${rd}) and Input B (${valB} from R${rs}), performed ${aluOp}, updated the Status Flags, and wrote ${resObj.result} back into R${rd}.`,
+                    `R${rd} &larr; ${valA} ${opSymbols[aluOp]} ${valB} = ${resObj.result}`,
+                    `ALU Output = ${resObj.result}`
+                );
+                appendRTLLog('Step 4', `ALU computed ${valA} ${opSymbols[aluOp]} ${valB} = ${resObj.result}`, `R${rd} ← ${resObj.result}`);
+
+            } else if (op === 0xA) {
+                // Single-Operand ALU (NOT, SHL, SHR, INC, DEC)
+                const subMap = { 0: 'NOT', 1: 'SHL', 2: 'SHR', 3: 'INC', 4: 'DEC' };
+                const aluOp = subMap[rs] || 'NOT';
+                const valA = cpu.regs[rd];
+                const resObj = compute8BitALU(aluOp, valA, 0);
+
+                cpu.regs[rd] = resObj.result;
+                cpu.flags = resObj.flags;
+                cpu.lastALU = { op: aluOp, a: valA, b: 0, out: resObj.result };
+
+                document.getElementById(`gpr-card-${rd}`).classList.add('hw-active-dest');
+                document.getElementById('alu-datapath-box').classList.add('hw-active-alu');
+                renderControlSignals(['ALU_Enable', 'Reg_Write']);
+
+                setNarrator(
+                    'STEP 4 OF 4 • ALU EXECUTION',
+                    `8-Bit ALU Computed ${aluOp} on R${rd} (${valA} → ${resObj.result})`,
+                    `The ALU updated R${rd} from ${valA} to ${resObj.result} and updated the 4 Status Flags.`,
+                    `R${rd} &larr; ${aluOp}(${valA}) = ${resObj.result}`,
+                    `ALU Output = ${resObj.result}`
+                );
+                appendRTLLog('Step 4', `ALU ${aluOp} changed R${rd} from ${valA} to ${resObj.result}`, `R${rd} ← ${resObj.result}`);
+
+            } else if (op === 0xD || op === 0xE) {
+                const isCond = op === 0xE;
+                const isJNZ = rd === 1;
+                const takeJump = !isCond || (isJNZ ? cpu.flags.Z === 0 : cpu.flags.Z === 1);
+                if (takeJump) {
+                    cpu.PC = imm;
+                    document.getElementById('reg-card-PC').classList.add('hw-active-dest');
+                    renderControlSignals(['PC_Load']);
+                    setNarrator('STEP 4 OF 4 • BRANCH TAKEN', `Jumped Program Counter (PC) to Line #${imm}`, `Because Zero Flag Z = ${cpu.flags.Z}, the loop jumps back to instruction #${imm}.`, `PC &larr; ${imm}`, `Jump to Line #${imm}`);
+                    appendRTLLog('Step 4', `Branch taken to line ${imm}`, `PC ← ${imm}`);
+                } else {
+                    renderControlSignals([]);
+                    setNarrator('STEP 4 OF 4 • BRANCH SKIPPED', `Loop Finished (Condition Not Met, Z = ${cpu.flags.Z})`, `Execution continues normally to the next line.`, `PC unchanged`, `Continue next line`);
+                    appendRTLLog('Step 4', `Branch not taken (Z=${cpu.flags.Z})`, `Continue`);
+                }
+
+            } else if (op === 0xF) {
+                cpu.halted = true;
+                stopAutoRun();
+                renderControlSignals([]);
+                setNarrator(
+                    'PROGRAM FINISHED (HLT)',
+                    'CPU Halted — Program Finished Successfully!',
+                    'All instructions have been executed. You can inspect the final Register and RAM values below, or click Reset to run again.',
+                    'CPU HALTED',
+                    'System Halted'
+                );
+                appendRTLLog('Step 4', 'CPU Halted (Program Complete)', 'HLT');
+            }
+        }
+
+        function stepFullInstruction() {
+            if (cpu.halted) return;
+            do {
+                stepMicroCycle();
+            } while (cpu.tState !== 0 && !cpu.halted);
+        }
+
+        function toggleAutoRun() {
+            if (cpu.autoRunTimer) {
+                stopAutoRun();
+            } else {
+                if (cpu.halted) resetCPU(false);
+                cpu.autoRunTimer = setInterval(stepMicroCycle, 850);
+                document.getElementById('autorun-text').textContent = 'Pause';
+                document.getElementById('autorun-icon').className = 'fa-solid fa-pause text-amber-400';
+            }
+        }
+
+        function stopAutoRun() {
+            if (cpu.autoRunTimer) {
+                clearInterval(cpu.autoRunTimer);
+                cpu.autoRunTimer = null;
+            }
+            document.getElementById('autorun-text').textContent = 'Auto Play';
+            document.getElementById('autorun-icon').className = 'fa-solid fa-play text-emerald-400';
+        }
+
+        // ============================================================================
+        // 4. UI RENDERING FOR CPU, REGISTERS, ROM & RAM
+        // ============================================================================
+        function renderAllCPUState() {
+            // Special Purpose Registers
+            document.getElementById('pc-dec').textContent = cpu.PC;
+            document.getElementById('pc-hex').textContent = `Hex: ${toHex2(cpu.PC)}`;
+
+            document.getElementById('mar-dec').textContent = cpu.MAR;
+            document.getElementById('mar-hex').textContent = `Hex: ${toHex2(cpu.MAR)}`;
+
+            document.getElementById('mbr-hex').textContent = toHex4(cpu.MBR);
+            document.getElementById('mbr-bin').textContent = ((cpu.MBR >> 8) & 0xFF).toString(2).padStart(8, '0') + ' ' + (cpu.MBR & 0xFF).toString(2).padStart(8, '0');
+
+            document.getElementById('ir-mnemonic').textContent = cpu.irText;
+            const op = (cpu.IR >> 12) & 0xF;
+            const rd = (cpu.IR >> 10) & 0x3;
+            const rs = (cpu.IR >> 8) & 0x3;
+            document.getElementById('ir-decode-fields').textContent = cpu.IR === 0 ? 'Waiting to decode' : `Opcode: ${op} | R${rd}, R${rs}`;
+
+            // Render Four 8-Bit Internal Registers (R0..R3)
+            const gprContainer = document.getElementById('gpr-container');
+            gprContainer.innerHTML = '';
+            for (let r = 0; r < 4; r++) {
+                const val = cpu.regs[r] & 0xFF;
+                let bitButtonsHTML = '';
+                for (let b = 7; b >= 0; b--) {
+                    const bitVal = (val >> b) & 1;
+                    bitButtonsHTML += `
+                        <button onclick="toggleGPRBit(${r}, ${b})" title="Flip Bit ${b}"
+                            class="bit-btn flex-1 py-1.5 rounded-md font-mono text-xs font-bold border ${bitVal
+                                ? 'bg-sky-500/20 border-sky-400 text-sky-300'
+                                : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-slate-300'}">
+                            ${bitVal}
+                        </button>`;
+                }
+
+                gprContainer.innerHTML += `
+                    <div id="gpr-card-${r}" class="hw-block p-3.5 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-400 font-mono text-xs font-bold">R${r}</span>
+                                <span class="text-lg font-bold font-mono text-white">${val}</span>
+                            </div>
+                            <span class="text-xs font-mono text-slate-400">${toHex2(val)} &bull; Signed: ${toSigned8(val)}</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            ${bitButtonsHTML}
+                        </div>
+                    </div>`;
+            }
+
+            // ALU Readouts
+            document.getElementById('cpu-alu-op-badge').textContent = cpu.lastALU.op;
+            document.getElementById('cpu-alu-a-val').textContent = `${cpu.lastALU.a} (${toHex2(cpu.lastALU.a)})`;
+            document.getElementById('cpu-alu-a-bin').textContent = toBin8(cpu.lastALU.a);
+            document.getElementById('cpu-alu-b-val').textContent = `${cpu.lastALU.b} (${toHex2(cpu.lastALU.b)})`;
+            document.getElementById('cpu-alu-b-bin').textContent = toBin8(cpu.lastALU.b);
+            document.getElementById('cpu-alu-out-val').textContent = `${cpu.lastALU.out} (${toHex2(cpu.lastALU.out)})`;
+            document.getElementById('cpu-alu-out-bin').textContent = toBin8(cpu.lastALU.out);
+
+            // Status Flags
+            ['Z', 'C', 'S', 'V'].forEach(f => {
+                const isSet = cpu.flags[f] === 1;
+                const badge = document.getElementById(`flag-val-${f}`);
+                const box = document.getElementById(`flag-box-${f}`);
+                badge.textContent = isSet ? '1' : '0';
+                if (isSet) {
+                    badge.className = 'w-7 h-7 rounded-lg bg-emerald-500 text-slate-950 flex items-center justify-center font-mono text-sm font-bold';
+                    box.className = 'bg-emerald-950/30 border border-emerald-500/50 rounded-lg px-3 py-2 flex items-center justify-between';
+                } else {
+                    badge.className = 'w-7 h-7 rounded-lg bg-slate-900 flex items-center justify-center font-mono text-sm font-bold text-slate-500';
+                    box.className = 'bg-slate-950/70 border border-slate-800 rounded-lg px-3 py-2 flex items-center justify-between';
+                }
+            });
+
+            renderROMList();
+            renderRAMGrid();
+        }
+
+        function toggleGPRBit(regIdx, bitPos) {
+            cpu.regs[regIdx] = (cpu.regs[regIdx] ^ (1 << bitPos)) & 0xFF;
+            renderAllCPUState();
+        }
+
+        function renderROMList() {
+            const container = document.getElementById('rom-list-container');
+            container.innerHTML = '';
+            const activeLine = cpu.tState === 0 ? cpu.PC : cpu.MAR;
+
+            cpu.rom.forEach(item => {
+                const isCurrent = item.addr === activeLine && !cpu.halted;
+                container.innerHTML += `
+                    <div class="p-2.5 rounded-xl border transition flex items-center justify-between gap-2 ${isCurrent
+                        ? 'bg-sky-500/15 border-sky-400 text-white shadow-sm'
+                        : 'bg-slate-950/60 border-slate-800/80 text-slate-300'}">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <span class="w-6 h-6 rounded-lg text-xs font-mono font-bold flex items-center justify-center shrink-0 ${isCurrent ? 'bg-sky-400 text-slate-950' : 'bg-slate-900 text-slate-400'}">
+                                ${item.addr}
+                            </span>
+                            <div class="truncate">
+                                <div class="font-mono text-xs font-bold ${isCurrent ? 'text-sky-300' : 'text-emerald-300'}">${item.mnemonic}</div>
+                                ${item.comment ? `<div class="text-[11px] text-slate-400 truncate">${item.comment}</div>` : ''}
+                            </div>
+                        </div>
+                        <span class="text-[11px] font-mono text-slate-500 shrink-0">${toHex4(item.word)}</span>
+                    </div>`;
+            });
+        }
+
+        function renderRAMGrid() {
+            const grid = document.getElementById('ram-grid');
+            grid.innerHTML = '';
+            for (let addr = 0; addr < 16; addr++) {
+                const val = cpu.ram[addr] & 0xFF;
+                const isSelected = addr === cpu.selectedRamAddr;
+                const isNonZero = val !== 0;
+                grid.innerHTML += `
+                    <button onclick="selectRamCell(${addr})"
+                        class="p-2 rounded-lg text-center border transition ${isSelected
+                            ? 'bg-amber-500/20 border-amber-400 text-white font-bold'
+                            : isNonZero
+                                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 font-bold'
+                                : 'bg-slate-900/70 border-slate-800 text-slate-400 hover:border-slate-700'}">
+                        <div class="text-[10px] text-slate-500">RAM[${addr}]</div>
+                        <div class="text-xs mt-0.5">${val}</div>
+                    </button>`;
+            }
+        }
+
+        function selectRamCell(addr) {
+            cpu.selectedRamAddr = addr;
+            document.getElementById('ram-edit-input').value = cpu.ram[addr];
+            renderRAMGrid();
+        }
+
+        function updateSelectedRamCell() {
+            const val = parseInt(document.getElementById('ram-edit-input').value || '0', 10) & 0xFF;
+            cpu.ram[cpu.selectedRamAddr] = val;
+            renderRAMGrid();
+        }
+
+        function toggleCodeEditor() {
+            const panel = document.getElementById('code-editor-panel');
+            const chevron = document.getElementById('editor-chevron');
+            panel.classList.toggle('hidden');
+            chevron.classList.toggle('rotate-180');
+        }
+
+        function loadPresetProgram(presetKey) {
+            document.getElementById('asm-editor').value = PRESET_PROGRAMS[presetKey] || PRESET_PROGRAMS.alu_demo;
+            assembleAndLoad();
+        }
+
+        function assembleAndLoad() {
+            stopAutoRun();
+            const statusBox = document.getElementById('asm-status');
+            try {
+                const source = document.getElementById('asm-editor').value;
+                cpu.rom = assembleProgram(source);
+                resetCPU(false);
+                statusBox.textContent = `Loaded ${cpu.rom.length} instructions successfully.`;
+            } catch (err) {
+                statusBox.textContent = err.message;
+            }
+        }
+
+        function resetCPU(clearRam = true) {
+            stopAutoRun();
+            cpu.regs = [0, 0, 0, 0];
+            cpu.PC = 0;
+            cpu.MAR = 0;
+            cpu.MBR = 0;
+            cpu.IR = 0;
+            cpu.irText = 'NONE';
+            cpu.flags = { Z: 0, C: 0, S: 0, V: 0 };
+            cpu.tState = 0;
+            cpu.halted = false;
+            cpu.lastALU = { op: 'IDLE', a: 0, b: 0, out: 0 };
+            if (clearRam) cpu.ram.fill(0);
+            clearHighlights();
+            updateStepProgressBar(0);
+            renderControlSignals([]);
+            clearRTLLog();
+            setNarrator(
+                'READY',
+                'Ready to start! Click "Next Step" to watch the CPU fetch its first instruction.',
+                'Every instruction runs in 4 simple steps: 1. Fetch Address → 2. Read Memory → 3. Decode → 4. Execute.',
+                'PC = 0 (Waiting for Clock)',
+                'System Bus: Ready'
+            );
+            renderAllCPUState();
+        }
+
+        // ============================================================================
+        // 5. TAB 2: STANDALONE 8-BIT ALU EXPLORER
+        // ============================================================================
+        const standaloneALU = { a: 25, b: 17, op: 'ADD', selBits: '000', selectedSlice: 0 };
+
+        function setStandaloneNumber(which, val) {
+            const num = Math.max(0, Math.min(255, parseInt(val || '0', 10)));
+            standaloneALU[which] = num;
+            renderStandaloneALU();
+        }
+
+        function renderStandaloneALU() {
+            const { a, b, op, selBits, selectedSlice } = standaloneALU;
+            const resObj = compute8BitALU(op, a, b);
+
+            document.getElementById('alu-num-a').value = a;
+            document.getElementById('alu-num-b').value = b;
+            document.getElementById('sa-hex').textContent = toHex2(a);
+            document.getElementById('sb-hex').textContent = toHex2(b);
+            document.getElementById('alu-sel-bits').textContent = `S = ${selBits} (${op})`;
+
+            const swA = document.getElementById('alu-switches-A');
+            const swB = document.getElementById('alu-switches-B');
+            const outLEDs = document.getElementById('alu-output-leds');
+            swA.innerHTML = '';
+            swB.innerHTML = '';
+            outLEDs.innerHTML = '';
+
+            for (let i = 7; i >= 0; i--) {
+                const bitA = (a >> i) & 1;
+                const bitB = (b >> i) & 1;
+                const bitY = (resObj.result >> i) & 1;
+
+                swA.innerHTML += `
+                    <button onclick="toggleStandaloneBit('a', ${i})" class="bit-btn p-2.5 rounded-lg font-mono text-center border ${bitA ? 'bg-sky-500/20 border-sky-400 text-sky-300 font-bold' : 'bg-slate-900 border-slate-800 text-slate-500'}">
+                        <div class="text-[10px]">Bit ${i}</div>
+                        <div class="text-base mt-0.5">${bitA}</div>
+                    </button>`;
+
+                swB.innerHTML += `
+                    <button onclick="toggleStandaloneBit('b', ${i})" class="bit-btn p-2.5 rounded-lg font-mono text-center border ${bitB ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold' : 'bg-slate-900 border-slate-800 text-slate-500'}">
+                        <div class="text-[10px]">Bit ${i}</div>
+                        <div class="text-base mt-0.5">${bitB}</div>
+                    </button>`;
+
+                outLEDs.innerHTML += `
+                    <div class="p-2.5 rounded-lg font-mono text-center border ${bitY ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 font-bold' : 'bg-slate-950 border-slate-800 text-slate-500'}">
+                        <div class="text-[10px]">Y${i}</div>
+                        <div class="text-base mt-0.5">${bitY}</div>
+                    </div>`;
+            }
+
+            document.getElementById('sa-formula-desc').textContent = `Operation: ${op} on A (${a}) and B (${b}) = ${resObj.result}`;
+            document.getElementById('sy-dec').textContent = `Decimal: ${resObj.result} (Signed: ${toSigned8(resObj.result)})`;
+            document.getElementById('sy-hex').textContent = toHex2(resObj.result);
+            document.getElementById('sa-flag-Z').textContent = resObj.flags.Z;
+            document.getElementById('sa-flag-C').textContent = resObj.flags.C;
+            document.getElementById('sa-flag-S').textContent = resObj.flags.S;
+            document.getElementById('sa-flag-V').textContent = resObj.flags.V;
+
+            const stagesGrid = document.getElementById('fa-stages-grid');
+            stagesGrid.innerHTML = '';
+            for (let i = 7; i >= 0; i--) {
+                const st = resObj.slices[i];
+                const isSel = i === selectedSlice;
+                stagesGrid.innerHTML += `
+                    <button onclick="selectBitSlice(${i})" class="p-3 rounded-xl border font-mono text-left transition ${isSel ? 'bg-purple-500/20 border-purple-400 text-white shadow-sm' : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700'}">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="font-bold text-purple-300">FA${i} (Bit ${i})</span>
+                            <span>Cin:${st.cin}</span>
+                        </div>
+                        <div class="text-sm font-bold text-emerald-400 mt-1">Sum = ${st.sum}</div>
+                        <div class="text-xs text-amber-300 mt-0.5">Cout = ${st.cout}</div>
+                    </button>`;
+            }
+
+            const s = resObj.slices[selectedSlice];
+            const piCin = s.prop & s.cin;
+            document.getElementById('slice-title').textContent = `Gate-Level Full Adder Circuit — Bit ${selectedSlice} (FA${selectedSlice})`;
+            document.getElementById('svg-fa-lbl-a').textContent = `A${selectedSlice} = ${s.a}`;
+            document.getElementById('svg-fa-lbl-b').textContent = `B${selectedSlice} = ${s.b}`;
+            document.getElementById('svg-fa-lbl-cin').textContent = `Cin = ${s.cin}`;
+            document.getElementById('svg-gate-pi').textContent = `P = ${s.prop}`;
+            document.getElementById('svg-gate-gi').textContent = `G = ${s.gen}`;
+            document.getElementById('svg-gate-sum').textContent = `Sum = ${s.sum}`;
+            document.getElementById('svg-gate-picin').textContent = `P·Cin = ${piCin}`;
+            document.getElementById('svg-gate-cout').textContent = `Cout = ${s.cout}`;
+            document.getElementById('svg-fa-out-s').textContent = `S${selectedSlice}=${s.sum}`;
+            document.getElementById('svg-fa-out-c').textContent = `C${selectedSlice+1}=${s.cout}`;
+
+            const hi = '#10b981';
+            const lo = '#334155';
+            document.getElementById('wire-ai').setAttribute('stroke', s.a ? '#38bdf8' : lo);
+            document.getElementById('wire-bi').setAttribute('stroke', s.b ? '#fbbf24' : lo);
+            document.getElementById('wire-cin').setAttribute('stroke', s.cin ? '#c084fc' : lo);
+            document.getElementById('wire-pi').setAttribute('stroke', s.prop ? hi : lo);
+            document.getElementById('wire-gi').setAttribute('stroke', s.gen ? hi : lo);
+            document.getElementById('wire-picin').setAttribute('stroke', piCin ? hi : lo);
+            document.getElementById('wire-sum-out').setAttribute('stroke', s.sum ? hi : lo);
+            document.getElementById('wire-cout-out').setAttribute('stroke', s.cout ? '#c084fc' : lo);
+        }
+
+        function toggleStandaloneBit(which, bitIdx) {
+            standaloneALU[which] = (standaloneALU[which] ^ (1 << bitIdx)) & 0xFF;
+            renderStandaloneALU();
+        }
+
+        function setStandaloneALUOp(op, selBits) {
+            standaloneALU.op = op;
+            standaloneALU.selBits = selBits;
+            document.querySelectorAll('.alu-op-btn').forEach(btn => {
+                btn.className = 'alu-op-btn p-2.5 rounded-lg border border-slate-800 bg-slate-900/70 text-left text-slate-300 hover:border-slate-700 transition';
+            });
+            const activeBtn = document.getElementById('aluop-' + op);
+            if (activeBtn) {
+                activeBtn.className = 'alu-op-btn p-2.5 rounded-lg border text-left transition bg-purple-500/20 border-purple-400 text-white';
+            }
+            renderStandaloneALU();
+        }
+
+        function selectBitSlice(idx) {
+            standaloneALU.selectedSlice = idx;
+            renderStandaloneALU();
+        }
+
+        function randomizeALUInputs() {
+            standaloneALU.a = Math.floor(Math.random() * 256);
+            standaloneALU.b = Math.floor(Math.random() * 256);
+            renderStandaloneALU();
+        }
+
+        function clearALUInputs() {
+            standaloneALU.a = 0;
+            standaloneALU.b = 0;
+            renderStandaloneALU();
+        }
+
+        // ============================================================================
+        // 6. TAB 3 & TAB 4: BOOTH'S MULTIPLIER, IEEE-754 & FLIP-FLOPS
+        // ============================================================================
+        function runBoothSimulation() {
+            const mInput = Math.max(-64, Math.min(63, parseInt(document.getElementById('booth-m').value || '-7', 10)));
+            const qInput = Math.max(-64, Math.min(63, parseInt(document.getElementById('booth-q').value || '3', 10)));
+
+            const mask = 0xFF;
+            let A = 0, Q = qInput & mask, M = mInput & mask, negM = ((~M) + 1) & mask, Q_1 = 0;
+            const tbody = document.getElementById('booth-table-body');
+            tbody.innerHTML = `
+                <tr class="bg-slate-900/60 text-slate-300">
+                    <td class="py-2.5 px-4 font-bold text-sky-400">Start</td>
+                    <td class="py-2.5 px-4">${Q & 1}, ${Q_1}</td>
+                    <td class="py-2.5 px-4">Initialize A = 0, M = ${mInput}, Q = ${qInput}</td>
+                    <td class="py-2.5 px-4 font-bold">${toBin8(A)}</td>
+                    <td class="py-2.5 px-4 font-bold text-amber-300">${toBin8(Q)}</td>
+                    <td class="py-2.5 px-4">${Q_1}</td>
+                </tr>`;
+
+            for (let step = 1; step <= 8; step++) {
+                const pair = `${Q & 1}${Q_1}`;
+                if (pair === '10') {
+                    A = (A + negM) & mask;
+                    tbody.innerHTML += `
+                        <tr class="text-rose-300 bg-rose-950/20">
+                            <td class="py-2 px-4">Step ${step}a</td>
+                            <td class="py-2 px-4 font-bold">1, 0</td>
+                            <td class="py-2 px-4">Subtract M: A &larr; A - M</td>
+                            <td class="py-2 px-4 font-bold">${toBin8(A)}</td>
+                            <td class="py-2 px-4">${toBin8(Q)}</td>
+                            <td class="py-2 px-4">${Q_1}</td>
+                        </tr>`;
+                } else if (pair === '01') {
+                    A = (A + M) & mask;
+                    tbody.innerHTML += `
+                        <tr class="text-emerald-300 bg-emerald-950/20">
+                            <td class="py-2 px-4">Step ${step}a</td>
+                            <td class="py-2 px-4 font-bold">0, 1</td>
+                            <td class="py-2 px-4">Add M: A &larr; A + M</td>
+                            <td class="py-2 px-4 font-bold">${toBin8(A)}</td>
+                            <td class="py-2 px-4">${toBin8(Q)}</td>
+                            <td class="py-2 px-4">${Q_1}</td>
+                        </tr>`;
+                }
+
+                const msbA = A & 0x80, lsbA = A & 1;
+                Q_1 = Q & 1;
+                Q = ((Q >> 1) | (lsbA << 7)) & mask;
+                A = ((A >> 1) | msbA) & mask;
+
+                tbody.innerHTML += `
+                    <tr class="text-slate-300">
+                        <td class="py-2 px-4 font-semibold">Step ${step} (Shift)</td>
+                        <td class="py-2 px-4">${pair[0]}, ${pair[1]}</td>
+                        <td class="py-2 px-4 text-sky-300">Arithmetic Shift Right [A, Q, Q-1]</td>
+                        <td class="py-2 px-4 font-bold">${toBin8(A)}</td>
+                        <td class="py-2 px-4 font-bold text-amber-300">${toBin8(Q)}</td>
+                        <td class="py-2 px-4">${Q_1}</td>
+                    </tr>`;
+            }
+
+            const product16 = (A << 8) | Q;
+            document.getElementById('booth-summary').innerHTML = `
+                <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                    <div class="text-xs text-slate-400">Multiplicand (M)</div>
+                    <div class="text-sm font-bold text-sky-400 mt-1">${mInput} (${toBin8(M)})</div>
+                </div>
+                <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                    <div class="text-xs text-slate-400">Multiplier (Q)</div>
+                    <div class="text-sm font-bold text-amber-400 mt-1">${qInput} (${toBin8(qInput & 0xFF)})</div>
+                </div>
+                <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                    <div class="text-xs text-slate-400">16-Bit Binary Output</div>
+                    <div class="text-sm font-bold text-purple-300 mt-1">${toBin8(A)} ${toBin8(Q)}</div>
+                </div>
+                <div class="p-3.5 rounded-xl bg-emerald-950/25 border border-emerald-500/40">
+                    <div class="text-xs text-emerald-300">Final Product (M &times; Q)</div>
+                    <div class="text-sm font-bold text-emerald-400 mt-1">${mInput * qInput} (${toHex4(product16)})</div>
+                </div>`;
+        }
+
+        function setIEEEPreset(val) {
+            document.getElementById('ieee-input').value = val;
+            updateIEEE754();
+        }
+
+        function updateIEEE754() {
+            const val = parseFloat(document.getElementById('ieee-input').value || '0');
+            const buf = new ArrayBuffer(4);
+            const view = new DataView(buf);
+            view.setFloat32(0, val, false);
+            const uint32 = view.getUint32(0, false);
+            const bin32 = uint32.toString(2).padStart(32, '0');
+            const signBit = bin32[0];
+            const expBits = bin32.slice(1, 9);
+            const mantBits = bin32.slice(9);
+            const expVal = parseInt(expBits, 2);
+
+            document.getElementById('ieee-sign-bit').textContent = signBit;
+            document.getElementById('ieee-sign-desc').textContent = signBit === '1' ? 'Negative (-)' : 'Positive (+)';
+            document.getElementById('ieee-exp-bits').textContent = expBits;
+            document.getElementById('ieee-exp-desc').textContent = expVal === 0 ? 'Zero' : `${expVal} - 127 = 2^${expVal - 127}`;
+            document.getElementById('ieee-mant-bits').textContent = mantBits;
+            document.getElementById('ieee-hex-out').textContent = '0x' + uint32.toString(16).toUpperCase().padStart(8, '0');
+            document.getElementById('ieee-formula-out').textContent = `Decimal Value = ${val}`;
+        }
+
+        const ffState = { type: 'JK', in0: 0, in1: 0, q: 0 };
+        const FF_SPECS = {
+            JK: {
+                title: 'JK Flip-Flop', in0Label: 'INPUT J', in1Label: 'INPUT K', dualInput: true,
+                charHeaders: ['J', 'K', 'Q(t+1)', 'Action'],
+                charRows: [['0','0','Q(t)','Hold'],['0','1','0','Reset'],['1','0','1','Set'],['1','1',"Q'(t)",'Toggle']],
+                excHeaders: ['Q(t)', 'Q(t+1)', 'J', 'K'],
+                excRows: [['0','0','0','X'],['0','1','1','X'],['1','0','X','1'],['1','1','X','0']]
+            },
+            SR: {
+                title: 'SR Flip-Flop', in0Label: 'INPUT S', in1Label: 'INPUT R', dualInput: true,
+                charHeaders: ['S', 'R', 'Q(t+1)', 'Action'],
+                charRows: [['0','0','Q(t)','Hold'],['0','1','0','Reset'],['1','0','1','Set'],['1','1','Invalid','Forbidden']],
+                excHeaders: ['Q(t)', 'Q(t+1)', 'S', 'R'],
+                excRows: [['0','0','0','X'],['0','1','1','0'],['1','0','0','1'],['1','1','X','0']]
+            },
+            D: {
+                title: 'D (Data) Flip-Flop', in0Label: 'INPUT D', in1Label: 'UNUSED', dualInput: false,
+                charHeaders: ['D', '-', 'Q(t+1)', 'Action'],
+                charRows: [['0','-','0','Reset (0)'],['1','-','1','Set (1)']],
+                excHeaders: ['Q(t)', 'Q(t+1)', 'D', 'Action'],
+                excRows: [['0','0','0','Hold 0'],['0','1','1','Load 1'],['1','0','0','Load 0'],['1','1','1','Hold 1']]
+            },
+            T: {
+                title: 'T (Toggle) Flip-Flop', in0Label: 'INPUT T', in1Label: 'UNUSED', dualInput: false,
+                charHeaders: ['T', '-', 'Q(t+1)', 'Action'],
+                charRows: [['0','-','Q(t)','Hold'],['1','-',"Q'(t)",'Toggle']],
+                excHeaders: ['Q(t)', 'Q(t+1)', 'T', 'Action'],
+                excRows: [['0','0','0','Hold'],['0','1','1','Toggle'],['1','0','1','Toggle'],['1','1','0','Hold']]
+            }
+        };
+
+        function selectFlipFlop(type) {
+            ffState.type = type; ffState.in0 = 0; ffState.in1 = 0;
+            ['JK', 'SR', 'D', 'T'].forEach(t => {
+                document.getElementById('ff-btn-' + t).className = t === type
+                    ? 'px-3.5 py-2 rounded-lg bg-sky-500 text-slate-950 font-semibold text-xs'
+                    : 'px-3.5 py-2 rounded-lg bg-slate-800 text-slate-300 font-semibold text-xs';
+            });
+            renderFlipFlopBench();
+        }
+
+        function toggleFFInput(idx) {
+            if (idx === 0) ffState.in0 ^= 1; else ffState.in1 ^= 1;
+            renderFlipFlopBench();
+        }
+
+        function triggerFFClock() {
+            const prevQ = ffState.q;
+            let nextQ = prevQ, msg = '';
+            if (ffState.type === 'JK') {
+                if (ffState.in0 === 0 && ffState.in1 === 0) { nextQ = prevQ; msg = 'No Change (Hold)'; }
+                else if (ffState.in0 === 0 && ffState.in1 === 1) { nextQ = 0; msg = 'Reset to 0'; }
+                else if (ffState.in0 === 1 && ffState.in1 === 0) { nextQ = 1; msg = 'Set to 1'; }
+                else { nextQ = prevQ ^ 1; msg = 'Toggled State'; }
+            } else if (ffState.type === 'SR') {
+                if (ffState.in0 === 0 && ffState.in1 === 0) { nextQ = prevQ; msg = 'No Change (Hold)'; }
+                else if (ffState.in0 === 0 && ffState.in1 === 1) { nextQ = 0; msg = 'Reset to 0'; }
+                else if (ffState.in0 === 1 && ffState.in1 === 0) { nextQ = 1; msg = 'Set to 1'; }
+                else { msg = 'Invalid State (S=1, R=1)'; }
+            } else if (ffState.type === 'D') {
+                nextQ = ffState.in0; msg = `Loaded D = ${nextQ}`;
+            } else if (ffState.type === 'T') {
+                nextQ = ffState.in0 ? (prevQ ^ 1) : prevQ; msg = ffState.in0 ? 'Toggled' : 'Hold';
+            }
+            ffState.q = nextQ;
+            document.getElementById('ff-transition-banner').textContent = `Clock Pulse: Q changed from ${prevQ} → ${nextQ} (${msg})`;
+            renderFlipFlopBench();
+        }
+
+        function renderFlipFlopBench() {
+            const spec = FF_SPECS[ffState.type];
+            document.getElementById('ff-title-badge').textContent = spec.title;
+            document.getElementById('ff-in-0-lbl').textContent = spec.in0Label;
+            document.getElementById('ff-in-0-val').textContent = ffState.in0 ? '1 (HIGH)' : '0 (LOW)';
+
+            const btn1 = document.getElementById('ff-in-1-btn');
+            if (spec.dualInput) {
+                btn1.classList.remove('opacity-30', 'pointer-events-none');
+                document.getElementById('ff-in-1-lbl').textContent = spec.in1Label;
+                document.getElementById('ff-in-1-val').textContent = ffState.in1 ? '1 (HIGH)' : '0 (LOW)';
+            } else {
+                btn1.classList.add('opacity-30', 'pointer-events-none');
+                document.getElementById('ff-in-1-lbl').textContent = 'SINGLE INPUT';
+                document.getElementById('ff-in-1-val').textContent = '-';
+            }
+
+            document.getElementById('ff-q-cur').textContent = ffState.q;
+            document.getElementById('ff-qbar-cur').textContent = ffState.q ^ 1;
+
+            document.getElementById('ff-char-head').innerHTML = `<tr>${spec.charHeaders.map(h => `<th class="py-2 px-2">${h}</th>`).join('')}</tr>`;
+            const activeRowIdx = spec.dualInput ? (ffState.in0 * 2 + ffState.in1) : ffState.in0;
+            document.getElementById('ff-char-body').innerHTML = spec.charRows.map((r, idx) => `
+                <tr class="${idx === activeRowIdx ? 'bg-sky-500/20 text-sky-300 font-bold' : 'text-slate-300'}">
+                    ${r.map(c => `<td class="py-2 px-2">${c}</td>`).join('')}
+                </tr>`).join('');
+
+            document.getElementById('ff-exc-head').innerHTML = `<tr>${spec.excHeaders.map(h => `<th class="py-2 px-2">${h}</th>`).join('')}</tr>`;
+            document.getElementById('ff-exc-body').innerHTML = spec.excRows.map(r => `
+                <tr class="${parseInt(r[0],10) === ffState.q ? 'bg-purple-500/20 text-purple-300 font-bold' : 'text-slate-300'}">
+                    ${r.map(c => `<td class="py-2 px-2">${c}</td>`).join('')}
+                </tr>`).join('');
+        }
+
+        function switchMainTab(tabId) {
+            ['cpu', 'alu', 'booth', 'flipflop'].forEach(id => {
+                document.getElementById('tab-' + id).classList.add('hidden');
+                document.getElementById('tab-btn-' + id).className = 'px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 text-slate-400 hover:text-white hover:bg-slate-800/60';
+            });
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            const icons = { cpu: 'fa-play', alu: 'fa-calculator', booth: 'fa-table-cells', flipflop: 'fa-toggle-on' };
+            const labels = { cpu: '1. CPU Simulator', alu: '2. 8-Bit ALU Explorer', booth: "3. Booth's & IEEE-754", flipflop: '4. Flip-Flops' };
+            const activeBtn = document.getElementById('tab-btn-' + tabId);
+            activeBtn.className = 'px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 bg-sky-500 text-slate-950 shadow-sm';
+            activeBtn.innerHTML = `<i class="fa-solid ${icons[tabId]}"></i><span>${labels[tabId]}</span>`;
+        }
+
+        function toggleISAReference() {
+            document.getElementById('isa-modal').classList.toggle('hidden');
+        }
+
+        window.onload = function () {
+            loadPresetProgram('alu_demo');
+            renderStandaloneALU();
+            runBoothSimulation();
+            updateIEEE754();
+            renderFlipFlopBench();
+        };
+    </script>
+</body>
+</html>
